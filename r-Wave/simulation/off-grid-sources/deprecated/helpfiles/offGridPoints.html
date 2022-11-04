@@ -1,0 +1,90 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>offGridPoints :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>offGridPoints</h1>
+<p class="purpose">Create a non-binary source mask from Cartesian points.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+mask = offGridPoints(kgrid, p, scale)
+</pre>
+
+<h2>Description</h2>
+
+<p><code>offGridPoints</code> creates a non-binary source mask using BLIs centered on a given set of Cartesian points.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 32;
+Ny = Nx;
+dx = 1;
+dy = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy);
+
+<span class="comment">% create circle and plot points</span>
+radius = 8;
+circumference = 2*pi*radius;
+desired_scale = 2;
+num_points = round(circumference/dx * desired_scale);
+actual_scale = num_points * dx/circumference;
+center_pos = [0, 0];
+arc_angle = 2*pi;
+plot_circle = true;
+circle = makeCartCircle(radius, num_points, center_pos, arc_angle, plot_circle);
+title(sprintf('%d source points', num_points))
+mask = offGridPoints(kgrid, circle, actual_scale);
+
+<span class="comment">% add mask extent to plot</span>
+hold on
+v = linspace(0, max(abs(mask(:))), 10);
+contour(kgrid.y_vec, kgrid.x_vec, abs(mask), v);
+set(gca, 'children', flipud(get(gca, 'children'))) <span class="comment">% reverse plot order</span>
+</pre>
+
+<img vspace="5" hspace="5" src="images/offGridPoints_01.png" style="width:560px;height:420px;" alt="">
+
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>k-space grid structure returned by makeGrid containing Cartesian and k-space grid fields</td>
+    </tr>
+    
+    <tr valign="top">
+        <td width = "150"><code>points</code></td>
+        <td>num_dims x num_points array of Cartesian coordinates</td>
+    </tr>
+
+    <tr valign="top">
+        <td width = "150"><code>scale</code></td>
+        <td>scaling factor accounting for density of source points relative to the density of kgrid nodes</td>
+    </tr>
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>mask</code></td>
+        <td>Non-binary source mask</td>
+    </tr>  
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="offGridArc.html">offGridArc</a></code>, <code><a href="offGridBowl.html">offGridBowl</a></code>, <code><a href="offGridDisc.html">offGridDisc</a></code>, <code><a href="offGridLine.html">offGridLine</a></code>
+
+</div></body></html>

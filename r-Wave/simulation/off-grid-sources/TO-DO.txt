@@ -1,0 +1,23 @@
+SHORT TERM
+- finish rotating sensor unit test
+- unit tests for the makeCart functions
+- plotting for other element shapes
+- add point source option
+- get rid of 'BLITolerance' set to zero warning (only if optional input is given)
+- error checking for 3D elements when axisymmetric
+
+MAKE CART
+- check Elliott note
+- unit test to check positions and numbers of elements
+
+MEDIUM TERM
+- add getElementBinaryMask method
+- add additional error checking for the inputs to methods
+- do something with the "active" property
+- function to check all elements lie within kgrid? Show a warning if the
+  mask is on the edge
+- consider how to store source signal when passing to k-Wave? Could the
+  source signal have different types, incorporating CW? How to know what
+  type of source this corresponds to (pressure, velocity, boundary
+  conditions, etc)
+- something to incorporate the transducer bandwidth automatically?

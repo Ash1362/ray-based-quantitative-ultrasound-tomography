@@ -1,0 +1,108 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>makeCartBowl :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>makeCartBowl</h1>
+<p class="purpose">Create evenly distributed Cartesian points covering a bowl.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+[points, scale] = makeCartBowl(kgrid, bowl_pos, radius, diameter, focus_pos)
+</pre>
+
+<h2>Description</h1>
+
+<p><code>makeCartBowl</code> creates a 3 x num_points array of the Cartesian coordinates of points evenly disributed over a bowl.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 32;
+Ny = Nx;
+Nz = Nx;
+dx = 1;
+dy = dx;
+dz = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy, Nz, dz);
+
+<span class="comment">% create bowl</span>
+bowl_pos  = [4, 4, 4];
+radius    = 15;
+diameter  = 21;
+focus_pos = -bowl_pos;
+points = makeCartBowl(kgrid, bowl_pos, radius, diameter, focus_pos);
+num_points = size(points, 2);
+
+<span class="comment">% plot points</span>
+figure
+plot3(points(2,:), points(1,:), points(3,:), 'k.')
+
+<span class="comment">% plot beam axis</span>
+dp = focus_pos-bowl_pos;
+hold on
+quiver3(bowl_pos(2), bowl_pos(1), bowl_pos(3), dp(2), dp(1), dp(3), 0, 'k')
+
+<span class="comment">% adjust plot axes</span>
+view(45,30), axis equal, box on, grid on
+axis(0.5*[kgrid.y_size .* [-1, 1], kgrid.x_size .* [-1, 1], kgrid.z_size .* [-1, 1]])
+xlabel('y-position'), ylabel('x-position'),zlabel('z-position')
+title(sprintf('%d source points', num_points))
+</pre>
+
+<img vspace="5" hspace="5" src="images/makeCartBowl_01.png" style="width:560px;height:420px;" alt="">
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>the kgrid object on which the simulation will take place</td>
+    </tr>    
+    <tr valign="top">
+        <td width = "150"><code>bowl_pos</code></td>
+        <td>centre of the rear surface of the bowl given as a three element vector [bx, by, bz] [m] </td>
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>radius</code></td>
+        <td>radius of curvature of the bowl [m]</td>        
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>diameter</code></td>
+        <td>diameter of the opening of the bowl [m]</td>        
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>focus_pos</code></td>
+        <td>any point on the beam axis of the bowl given as a three element vector [fx, fy, fz] [m]</td>        
+    </tr>          
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>points</code></td>
+        <td>3 x num_points array of Cartesian coordinates</td>
+    </tr>
+    <tr valign="top">
+        <td width = "150"><code>scale</code></td>
+        <td>scaling factor relating the density of Cartesian points to the density of kgrid nodes</td>
+    </tr>
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="offGridBowl.html">offGridBowl</a></code>
+
+
+
+
+</div></body></html>

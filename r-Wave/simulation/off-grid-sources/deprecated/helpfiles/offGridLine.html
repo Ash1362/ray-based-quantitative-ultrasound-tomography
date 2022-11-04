@@ -1,0 +1,96 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>offGridLine :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>offGridLine</h1>
+<p class="purpose">Create a non-binary mask for a line source</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+mask = offGridLine(kgrid, startpoint, endpoint)
+mask = offGridLine(kgrid, startpoint, endpoint, plot_line)
+</pre>
+
+<h2>Description</h1>
+
+<p><code>offGridLine</code> computes a non-binary mask for implementing a line source in simulations with any dimensionality. It evenly samples the line, and for each sample point computes a band-limited interpolant corresponding to a point source at that location. These point source responses are summed and scaled to give the source mask.
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 32;
+Ny = Nx;
+dx = 1;
+dy = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy);
+
+<span class="comment">% create line mask and plot points</span>
+startpoint = [-4, 8];
+endpoint = -startpoint;
+plot_line = true;
+mask = offGridLine(kgrid, startpoint, endpoint, plot_line);
+
+<span class="comment">% add mask extent to plot</span>
+hold on
+v = linspace(0, max(abs(mask(:))), 10);
+contour(kgrid.y_vec, kgrid.x_vec, abs(mask), v);
+set(gca, 'children', flipud(get(gca, 'children'))) <span class="comment">% reverse plot order</span>
+</pre>
+
+<img vspace="5" hspace="5" src="images/offGridLine_01.png" style="width:560px;height:420px;" alt="">
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>k-space grid structure returned by makeGrid containing Cartesian and k-space grid fields</td>
+    </tr>     
+    
+    <tr valign="top">
+        <td width = "150"><code>startpoint</code></td>
+        <td>start coordinate for the line given as a row vector [m]</td>
+    </tr>    
+    
+    <tr valign="top">
+        <td width = "150"><code>endpoint</code></td>
+        <td>end coordinate for the line given as a row vector [m]</td>
+    </tr>
+</table>
+
+<h2>Optional Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>plot_line</code></td>
+        <td>boolean controlling whether the line sampling points are plotted (default = false)</td>
+    </tr>     
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>mask</code></td>
+        <td>non-binary source mask for a line</td>
+    </tr>
+</table>
+
+
+<h2>See Also</h2>
+
+<code><a href="makeLine.html">makeLine</a></code>
+
+
+
+
+</div></body></html>

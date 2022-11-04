@@ -1,0 +1,106 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>offGridArc :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>offGridArc</h1>
+<p class="purpose">Generate a non-binary mask for a arc source on a 2D grid.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+mask = offGridArc(kgrid, arc_pos, radius, diameter, focus_pos)
+mask = offGridArc(kgrid, arc_pos, radius, diameter, focus_pos, plot_arc)
+</pre>
+
+<h2>Description</h2>
+
+<p><code>offGridArc</code> computes a non-binary mask for implementing an arc source in 2D simulations. It evenly samples the arc, and for each sample point computes a band-limited interpolant corresponding to a point source at that location. These point source responses are summed and scaled to give the source mask.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 64;
+Ny = Nx;
+dx = 1;
+dy = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy);
+
+<span class="comment">% create arc mask</span>
+arc_pos = [-16, -16];
+radius = 30;
+diameter = 31;
+focus_pos = -arc_pos;
+plot_arc = true;
+mask = offGridArc(kgrid, arc_pos, radius, diameter, focus_pos, plot_arc);
+
+<span class="comment">% plot non-binary mask</span>
+imagesc(kgrid.y_vec, kgrid.x_vec, mask)
+ylabel('x-position')
+xlabel('y-position')
+axis image
+</pre>
+
+<img vspace="5" hspace="5" src="images/offGridArc_01.png" style="width:560px;height:420px;" alt="">
+
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>k-space grid structure returned by makeGrid containing Cartesian and k-space grid fields</td>
+    </tr>
+    
+    <tr valign="top">
+        <td width = "150"><code>arc_pos</code></td>
+        <td>centre of the rear surface of the arc given as a two element vector [bx, by] [m] </td>
+    </tr>
+
+    <tr valign="top">
+        <td width = "150"><code>radius</code></td>
+        <td>radius of the arc [m]</td>
+    </tr>
+    
+    <tr valign="top">
+        <td width = "150"><code>diameter</code></td>
+        <td>aperture diameter (length of line connecting arc endpoints) [m]</td>
+    </tr>
+    
+	<tr valign="top">
+        <td width = "150"><code>focus_pos</code></td>
+        <td>any point on the beam axis of the arc given as a two element vector [fx, fy] [m]</td>
+    </tr>    
+    
+</table>
+    
+<h2>Optional Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>plot_arc</code></td>
+        <td>boolean controlling whether the arc sampling points are plotted (default = false)</td>
+    </tr>   
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>mask</code></td>
+        <td>2D non-binary source mask for an arc</td>
+    </tr>  
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="makeArc.html">makeArc</a></code>, <code><a href="makeMultiArc.html">makeMultiArc</a></code>
+
+</div></body></html>

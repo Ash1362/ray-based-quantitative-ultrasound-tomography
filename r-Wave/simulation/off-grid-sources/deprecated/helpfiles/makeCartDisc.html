@@ -1,0 +1,103 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>makeCartDisc :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>makeCartDisc</h1>
+<p class="purpose">Create evenly distributed Cartesian points covering a disc.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+[points, scale] = makeCartDisc(kgrid, centre, radius)
+[points, scale] = makeCartDisc(kgrid, centre, radius, orientation)
+</pre>
+
+<h2>Description</h1>
+
+<p><code>makeCartDisc</code> creates a num_dims x num_points array of the Cartesian coordinates of points evenly disributed over a disc.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 30;
+Ny = 50;
+dx = 1;
+dy = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy);
+
+<span class="comment">% create disc points</span>
+centre = [0, 0];
+radius = 10;
+points = makeCartDisc(kgrid, centre, radius);
+num_points = size(points, 2);
+
+<span class="comment">% plot points</span>
+figure
+plot(points(2,:), points(1,:), 'k.')
+axis(0.5*[kgrid.y_size .* [-1, 1], kgrid.x_size .* [-1, 1]])
+axis equal
+xlabel('y-position')
+ylabel('x-position')
+title(sprintf('%d source points', num_points))
+</pre>
+
+<img vspace="5" hspace="5" src="images/makeCartDisc_image_01.png" style="width:560px;height:420px;" alt="">
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>the kgrid object on which the simulation will take place</td>
+    </tr>    
+    <tr valign="top">
+        <td width = "150"><code>centre</code></td>
+        <td>centre of the disc given as a row vector [m] </td>
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>radius</code></td>
+        <td>radius of the disc [m]</td>        
+    </tr>          
+</table>
+
+<h2>Optional Inputs</h2>
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>center_pos</code></td>
+        <td>[x, y, z] position of the circle center [m] (default = [0, 0, 0])</td>        
+    </tr>      
+    <tr valign="top">
+        <td width = "150"><code>orientation</code></td>
+        <td>orientation of the disc given as a row vector [m]</td>
+    </tr>     
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>points</code></td>
+        <td>num_dims x num_points array of Cartesian coordinates</td>
+    </tr>
+    <tr valign="top">
+        <td width = "150"><code>scale</code></td>
+        <td>scaling factor relating the density of Cartesian points to the density of kgrid nodes</td>
+    </tr>
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="offGridDisc.html">offGridDisc</a></code>
+
+
+
+
+</div></body></html>

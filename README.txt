@@ -2,7 +2,7 @@ ____________________________________________________________________________
 
                                   r-Wave
 
-                    A MATLAB toolbox for the high-resolution quantitative ultrasound
+                    A MATLAB toolbox for high-resolution quantitative ultrasound
 using two-point ray tracing 
 ____________________________________________________________________________
 

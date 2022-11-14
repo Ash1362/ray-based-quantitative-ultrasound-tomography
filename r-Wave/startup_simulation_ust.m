@@ -32,13 +32,13 @@ if any(strcmp(machine_name(1:end-1), {'kinsler','nyborg'}))
     res_path = '/mnt/Pammoth/user/Ashkan/data/';
     
     % get the k-Wave directory
-    kwave_path  = '/mnt/Pammoth/Software/k-wave-toolbox-version-1.3/k-Wave';
-     
+    % kwave_path  = '/mnt/Pammoth/Software/k-wave-toolbox-version-1.3/k-Wave';
+    % get the k-wave path
+    kwave_path = 'k-wave-toolbox-version-1.3/k-Wave';
     % get the path for Mark Anastasio's breast phantom 
     oa_breast_path = '/mnt/Pammoth/Software/OA-BREAST/';
     
-    % add the paths
-    addpath(kwave_path)
+
     addpath(oa_breast_path)
     
 else
@@ -67,7 +67,8 @@ else
     
 end
 
-
+% add the paths
+addpath(kwave_path)
 % get the path for saving the data on the local machine. res_path will be used
 % for saving and later loading the portion of data, which require larger memory,
 % but local_res_path is used for saving and loading the portion of data, which require

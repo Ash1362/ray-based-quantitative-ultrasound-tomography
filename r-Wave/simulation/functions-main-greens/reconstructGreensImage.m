@@ -275,15 +275,16 @@ switch para.optimisation_approach
 end
  
 
-    
-    switch para.optimisation_approach
-        case 'gradient'
-            para.step_length = 1e-6;
-        case 'hessian'
-            para.step_length = 3e-2;    % (Default = 0.5, 2.84e-2)
-        case 'backprojection'
-            para.step_length = 3e-10;    % (Default = 15.2225, 2.6393e-10)
-    end
+switch para.optimisation_approach
+    case 'gradient'
+        error('The gradient approach for optimisation is deprecated.')
+        para.step_length = 1e-6;
+    case 'hessian'
+        para.step_length = 3e4/(1000*grid_spacing);     
+    case 'backprojection'
+        para.step_length = 3e-4;                        
+end
+
     
     if para.do_preconditioning
         
@@ -387,10 +388,6 @@ switch para.attenuation_geom_method
 end
 
 
-% get the spacing [m] of the sampled points on the rays
-ray_spacing = grid_spacing * para.raytogrid_spacing;
-
-
 if para.filter_data
     
     % choose the cut-off frequencies for the filter
@@ -462,6 +459,31 @@ gridtoray_interp = 'Bspline';
 % Calculate the distance between emitter-receiver pairs
 distance_emitters_receivers = calculateDistanceEmitterReceiver(emitter.positions,...
   receiver.positions, []);
+
+% get the spacing [m] of the sampled points on the rays
+ray_spacing = grid_spacing * para.raytogrid_spacing;
+
+% make the ray spacing smaller than the minimum distance between emitter
+% and receivers
+if min(distance_emitters_receivers(:))< 1e-10
+    error(['The current version of the codes does not accept the same transucer'...
+        'used as both emiter and receiver, please contact the developer!'])
+end
+
+% the ray spacing must not be larger than the minimum distance between the 
+% emitter-receiver pairs
+while ray_spacing > min(distance_emitters_receivers(:))
+    
+    % reduce the ray spacing by 2
+    para.raytogrid_spacing =  1/2 * para.raytogrid_spacing;
+    
+    % get the spacing [m] of the sampled points on the rays
+    ray_spacing = grid_spacing * para.raytogrid_spacing;
+end
+
+% dispaly the chosen ray-to-grid spacing    
+disp(['The ray to grid spacing is:' num2str(para.raytogrid_spacing)])
+    
 
 
 %% ========================================================================

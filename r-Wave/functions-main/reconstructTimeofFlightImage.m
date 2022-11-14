@@ -448,14 +448,14 @@ disp(['The method for solving the linearised subproblem is:'...
 switch para.raytogrid_interp
     case 'Bilinear'
         
-        grid_expansion_coeff = 1.02;
+        grid_expansion_coeff = 1 + 0.02 * 1000 * para.grid_spacing; % 1.02;
     case 'Bspline'
         
         % B-spline uses four adjacent grid points for interpolation, so the
         % grid is enlarged such that the adjacent grid points about the
         % grid points close to the edge of grid does not exceed the edge of 
         % the computational grid
-        grid_expansion_coeff = 1.07;
+        grid_expansion_coeff = 1 + 0.07 * 1000 * para.grid_spacing;  % 1.07
         
 end
 

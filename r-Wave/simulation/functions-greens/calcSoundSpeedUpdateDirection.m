@@ -730,7 +730,7 @@ if calc_adjointfield
             % Multiply the computed sound speed update direction
             % by the inverse of the grid area for accounting for spatial sampling
             % and the step length
-            sound_speed_update_direction = step_length /grid_area *...
+            sound_speed_update_direction = step_length *...
                 sound_speed_update_direction;
             
         case  'backprojection'
@@ -740,7 +740,7 @@ if calc_adjointfield
             % integration over angular frequencies, by the inverse of the grid area
             % for accounting for spatial sampling and $1/(2pi)^3$ times the step length
             sound_speed_update_direction = step_length * omega_spacing/...
-                ((2*pi)^3  * grid_area) *  sound_speed_update_direction;
+                ((2*pi)^3) *  sound_speed_update_direction;
     end
     
 else

@@ -68,7 +68,6 @@ greens_optimisation_approach = 'hessian';
 % the signal-to-noise ratio of the simulated ultrasound data
 noise_level = 40;
 
-
 %% ========================================================================
 % THE FIXED INPUT PARAMETERS
 %==========================================================================
@@ -78,7 +77,7 @@ num_worker_pool = 16;
 % get the Boolean controlling whether the k-Wave simulation is performed and stored in
 % a directory, or alternatively, the already simulated pressure time series are loaded
 % from the same directory.
-do_data_sim = false;
+do_data_sim = true;
 
 % get the Boolean controlling whether the mat results are saved or not
 save_results = false;
@@ -92,10 +91,10 @@ dim = 2;
 % get the scenario ('standard': the k-Wave simulation is performed for all
 % emitter-receiver pairs, or 'single_emitter': a single emitter for testing
 % purposes.)
-scenario = 'standard';                 %   'single_emitter';             
+scenario = 'single_emitter';            % 'standard';            %              
 
 % the purpose is either 'image_reconstruction', or 'raytracing_validation'.
-purpose = 'image_reconstruction';      %  'raytracing_validation';       
+purpose = 'raytracing_validation';      % 'image_reconstruction';    %   
 
 if strcmp(purpose, 'raytracing_validation')
         
@@ -185,7 +184,7 @@ switch dim
         half_grid_size = 10e-2;
         
         % get the grid spacing [m] for the k-Wave simulations
-        grid_spacing_data = 4e-4;   %   (Default : 4e-4) 
+        grid_spacing_data = 1e-3;   %   (Default : 4e-4) 
         
         % get the Boolean controlling whether the acoustic absorption and dispersion are
         % included or not
@@ -212,7 +211,7 @@ switch dim
         receiver_downsampling_rate = 1;
         
         % get the grid spacing [m] for image recosntruction
-        grid_spacing_reconstruction = 2e-3;
+        grid_spacing_reconstruction = 1e-3;
         
     case 3
         
@@ -244,7 +243,7 @@ switch dim
         half_grid_size = 13e-2;
         
         % get the grid spacng [m] for the k-Wave simulations
-        grid_spacing_data = 5e-4;
+        grid_spacing_data = 1e-3;
         
         % get the Boolean controlling whether the acoustic absorption and dispersion are
         % included or not
@@ -259,7 +258,7 @@ switch dim
         % emitters to grid points and from grid points to receivers.
         % Using 'offgrid', the offgrid toolbox is used. (c.f. reference [5]
         % in the description of the script.)
-        transducer_interp_approach = 'nearest';
+        transducer_interp_approach = 'offgrid';
         
         % get the downsampling rate for the emitters
         emitter_downsampling_rate = 2;

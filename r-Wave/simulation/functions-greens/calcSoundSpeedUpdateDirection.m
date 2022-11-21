@@ -4,7 +4,7 @@ function [sound_speed_update_direction, objective_function, computation_time,...
     parameters_receiver, nan_grid_binary, nan_grid_binary_adjoint, caustic_number,...
     caustic_number_adjoint, receiver_order, caustic_receiver, num_rays, perturbation, directions_grid,...
     directions_grid_adjoint, sound_speed, absorption, mask, random_residual,...
-    omega_spacing, grid_area, step_length, varargin)
+    omega_spacing, step_length, varargin)
 %calcSoundSpeedUpdateDirection computes the update direction of the sound speed
 % using the Green's approach
 %
@@ -91,8 +91,6 @@ function [sound_speed_update_direction, objective_function, computation_time,...
 %                           through an inner product test. For image reconstruction.
 %                            this variable is set an empty variable. 
 %       omega_spacing     - the spacing [2 * pi * Hz] of the angular frequency
-%       grid_area         - the area (volume) of each pixel (voxel) of the
-%                           computational grid
 %       step_length       - the step length for computing the update direction
 %
 %
@@ -408,7 +406,8 @@ calc_pressure = @(approx_pressure, parameters_grid, caustic_number, nan_grid_bin
     caustic_receiver, receiver_order, length(omega));
 
 % Initialise the update direction of the sound speed by zero
-sound_speed_update_direction = 0;
+sound_speed_update_1 = 0;
+sound_speed_update_2 = 0;
 
 % Initialise the objcetive function, ie. the half square of the L2 norm of
 % the residual, by zero
@@ -692,7 +691,7 @@ parfor (ind_emitter = emitter_indices, para.num_workers)
                         % field by $\Upsilon(c)$ on each grid point, and add the
                         % resulting update direction on the grid points for the current
                         % emitter to update direction for all the emitters
-                        sound_speed_update_direction = sound_speed_update_direction...
+                        sound_speed_update_1 = sound_speed_update_1...
                             + (-2 ./ sound_speed.^3) .* ((pressure_forward_adjoint * omega_squared')...
                             + (tan(pi*y/2) + 1i) * sound_speed .* absorption .*...
                             (pressure_forward_adjoint * omega_frac'));
@@ -704,7 +703,7 @@ parfor (ind_emitter = emitter_indices, para.num_workers)
                         % field by $\omega \Upsilon(c)$ on each grid point, and add the
                         % resulting update direction on the grid points for the current
                         % emitter to update direction for all the emitters
-                            sound_speed_update_direction = sound_speed_update_direction - 1/2 * ...
+                            sound_speed_update_2 = sound_speed_update_2 - 1/2 * ...
                                 sum(pressure_forward_adjoint .* ...
                                 (sound_speed.^3./omega) .*...
                                 (omega_squared./sound_speed + (tan(pi*y/2) - 1i) * absorption .* omega_frac) ./...
@@ -725,13 +724,18 @@ if calc_adjointfield
     
     switch para.task
         
+        case 'hessian'
+            
+            % get the sound speed update direction 
+            sound_speed_update_direction = sound_speed_update_1;
+        
         case 'gradient'
             
             % Multiply the computed sound speed update direction
             % by the inverse of the grid area for accounting for spatial sampling
             % and the step length
             sound_speed_update_direction = step_length *...
-                sound_speed_update_direction;
+                sound_speed_update_1;
             
         case  'backprojection'
             
@@ -740,7 +744,7 @@ if calc_adjointfield
             % integration over angular frequencies, by the inverse of the grid area
             % for accounting for spatial sampling and $1/(2pi)^3$ times the step length
             sound_speed_update_direction = step_length * omega_spacing/...
-                ((2*pi)^3) *  sound_speed_update_direction;
+                ((2*pi)^3) *  sound_speed_update_2;
     end
     
 else

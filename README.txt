@@ -19,20 +19,21 @@ The toolbox may be downloaded from https://github.com/Ash1362/ray-based-quantita
 For this version, the codes include the scenarios in the papers:
 [1] Ashkan Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 
 https://arxiv.org/abs/2211.00316, 2 Nov 2022.
-[2] A. Javaherian and B. Cox, Ray-based inversion accounting for scattering for biomedical ultrasound tomography,
+[2] A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering for biomedical ultrasound tomography❞,
 Inverse Problems vol. 37, no.11, 115003, 2021.
-[3] A. Javaherian, F. Lucka and B. Cox, Refraction-corrected ray-based inversion for three-dimensional ultrasound
-tomography of the breast, Inverse Problems, vol. 36, 125010, 2020.
+[3] A. Javaherian, F. Lucka and B. Cox, ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound
+tomography of the breast❞, Inverse Problems, vol. 36, 125010, 2020.
 
 The studies [1] and [2] correspond to high-resolution quantitative ultrasound tomography of the breast from ultrasound data measured
-using the transducers placed on a ring, and the image reconstruction is done in 2D. The studies [1] and [2] have not been tested on experimental UST data yet.
+using the transducers placed on a ring, and the image reconstruction is done in 2D. The studies [1] and [2] have not been tested on experimental UST data yet. The plan is to collaborate with University of Johns Hopkins for testing and implentation on experimental UST data. 
 
 The study [3] corresponds to a full-3D refraction-corrected ray-based algorithm for reconstructing a low-resolution image of the sound speed from time-of-flight data. This study has been implemented on ultrasound data measured using the full-3D pammoth system. The application of [3] 
 on experimental data shows significant contrast between the bent-ray approach proposed in [3] and straight-ray approach for quantitativce reconstruction of the sound speed from time-of-flight-data.
 
+....................................................................
 Acknowledgement:
-I would like to thank Dr. Yixuan Wu at university of Johns Hopkins for helping me in debugging and useful comments for improving the usability of the codes, especially for implemenatation on experimental settings. (https://yixuanwu.page/) 
-
+I would like to thank Dr. Yixuan Wu at university of Johns Hopkins for useful comments for improving the usability of the codes, especially for implementation on experimental data. (https://yixuanwu.page/) 
+Some comments will be applied on the next version (1.1), which will be commited in few weeks.
 ____________________________________________________________________________
 
 PRODUCT OVERVIEW

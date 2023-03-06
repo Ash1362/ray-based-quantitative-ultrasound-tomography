@@ -32,8 +32,7 @@ on experimental data shows significant contrast between the bent-ray approach pr
 
 ....................................................................
 Acknowledgement:
-I would like to thank Dr. Yixuan Wu at university of Johns Hopkins for useful comments for improving the usability of the codes, especially for implementation on experimental data. (https://yixuanwu.page/) 
-Some comments will be applied on the next version (1.1), which will be commited in few weeks.
+I would like to thank Dr. Yixuan Wu at university of Johns Hopkins (https://yixuanwu.page/) for helping for debugging and useful comments for improving usability of the codes, especially for implementation on experimental data. Some comments will be applied on the next version (1.1), which will be commited in few weeks.
 ____________________________________________________________________________
 
 PRODUCT OVERVIEW

@@ -9,7 +9,7 @@ ____________________________________________________________________________
 VERSION INFORMATION
 ____________________________________________________________________________
 
-Version 1.0, Released 10th March 2023
+Version 1.0, Released 6th March 2023
 Written by Ashkan Javaherian
 
 Please report bugs and suggestions to email: a.javaherian@ucl.ac.uk, ashkan.javaherian@yahoo.com

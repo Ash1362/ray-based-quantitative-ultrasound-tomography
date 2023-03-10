@@ -88,7 +88,7 @@ The folder 'Neg_47_Left' is used for simulation of UST data for all studies in t
 The folder 'Neg_47_Left' must be added to the directory:
 '.../simulation/data/phantom/OA-BREAST/Neg_47_Left/...'
 The pressure field used as the benchmark is simulated using the k-Wave toolbox.  www.k-Wave.org (v. 1.3.) [5].
-The k-Wave toolbox and the functions for an off-grid interpolation is available in the toolbox. 
+The k-Wave toolbox and the functions for an off-grid interpolation is available in this project. 
 
 
 ____________________________________________________________________________

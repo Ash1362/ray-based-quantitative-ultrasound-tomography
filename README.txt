@@ -25,9 +25,7 @@ The studies [1] and [2] correspond to high-resolution and quantitative reconstru
 
 The study [3] corresponds to a full-3D and refraction-corrected ray-based algorithm for reconstructing a qunatitatively accurate and low-resolution image of the sound speed from time-of-flight data. This study was sucessfully implemented on in-vivo ultrasound data measured from the full-3D pammoth system. The application of [3] on Pammoth system shows significant contrast between the bent-ray approach proposed in [3] and straight-ray approach for a fast and quantitative reconstruction of the sound speed from time-of-flight-data.
 
-....................................................................
-Acknowledgement:
-I would like to thank Dr. Yixuan Wu at university of Johns Hopkins (https://yixuanwu.page/) for helping in debugging and useful comments for improving the codes.
+
 ____________________________________________________________________________
 
 PRODUCT OVERVIEW

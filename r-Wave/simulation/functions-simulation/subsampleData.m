@@ -44,8 +44,8 @@ function [data, data_ref, data_noisy, data_ref_noisy,...
 %       date            - 29.12.2019
 %       last update     - 29.12.2019
 %
-% This script is part of the r-Wave Tool-box (http://www.r-wave.org).
-% Copyright (c) 2020 Ashkan Javaherian and Ben Cox
+% This script is part of the r-Wave Tool-box 
+% Copyright (c) 2020 Ashkan Javaherian
 
 
 

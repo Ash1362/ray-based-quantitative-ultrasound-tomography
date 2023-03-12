@@ -1,11 +1,8 @@
 function [polar_direction_residual, interp_coeff_vec, cartesian_pos_endpoint,...
-    polar_direction_endpoint] = calcRayParameters(refractive,refractive_gradient_x,...
-    refractive_gradient_y, refractive_gradient_z, cartesian_position_emitter,...
-    polar_direction_receiver, polar_initial_direction, xvec, yvec, zvec,...
-    pos_grid_first, pos_grid_end, dx, ds, grid_size, dim, detec_radius,...
-    mask, raytogrid_indices_x, raytogrid_indices_y, raytogrid_indices_z,...
-    raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix, calc_coeffs,...
-    raylinking_method, interp_method)
+    polar_direction_endpoint] = calcRayParameters(refractive, ray_fields_params,...
+    cartesian_position_emitter, polar_direction_receiver, polar_initial_direction,...
+    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim, detec_radius,...
+    mask, calc_coeffs, raylinking_method, raytracing_method)
 %CALCRAYPARAMETERS traces a ray and calculate the information about the end
 %point of the ray
 %
@@ -18,9 +15,25 @@ function [polar_direction_residual, interp_coeff_vec, cartesian_pos_endpoint,...
 %
 % INPUTS:
 %       refractive            - disretised refractive index
-%       refractive_gradient_x - discretised refractive index gradient along x
-%       refractive_gradient_y - discretised refractive index gradient along y
-%       refractive_gradient_z - discretised refractive index gradient along z
+%       ray_fields_params - a struct with fields the direction gradients
+%                           for an interpolation using a'Bilinear'
+%                           approach, or parameters for choosing indices of
+%                           the grid points and their associated coefficients for an
+%                           interpolation using a 'Bspline' approach.
+%                           The fields are:
+%       'refractive_gradient_x' - discretised refractive index gradient along x
+%       'refractive_gradient_y' - discretised refractive index gradient along y
+%       'refractive_gradient_z' - discretised refractive index gradient along z
+%                              using a'Bspline' interpolation, this
+%                              includes the matrices for intertpolation:
+%       'raytogrid_indices_x'   - x indices for B-spline interpolation
+%       'raytogrid_indices_y'   - y indices for B-spline interpolation                                  
+%       'raytogrid_indices_z'   - z indices for B-spline interpolation
+%     'raytogrid_coeff_matrix'  - matrix for calculating B-spline
+%                                 interpolation coefficients of the field
+%     'raytogrid_coeff_derivative_matrix' - matrix for calculating B-spline
+%                                 interpolation coefficients of the directional 
+%                                 gradientsof the field
 %       cartesian_position_emitter - a dim x 1 cartesian position of the emitter
 %       polar_direction_receiver   - a (dim-1) x 1 vector of the polar direction from emitter to
 %                                    receiver
@@ -39,20 +52,28 @@ function [polar_direction_residual, interp_coeff_vec, cartesian_pos_endpoint,...
 %       grid_size            - the size of the grid
 %       dim                  - the dimension of the medium
 %       mask                 - a binary mask used for calculating the
-%                              interpolation coefficients
-%      raytogrid_indices_x   -  x indices for B-spline interpolation
-%      raytogrid_indices_y   -  y indices for B-spline interpolation                                  
-%      raytogrid_indices_z   -  z indices for B-spline interpolation
-%      raytogrid_coeff_matrix - matrix for calculating B-spline
-%                               interpolation coefficients of the field
-%      raytogrid_coeff_derivative_matrix - matrix for calculating B-spline
-%                                         interpolation coefficients of the
-%                                         directional gradients of the field                              
+%                              interpolation coefficients                             
 %       calc_coeffs          - a boolean controlling whether the
 %                              interpolation coefficients are stored or
 %                              not (This is often set true only for a linked
 %                              ray after solving the ray linking problem.)
-%       interp_method        - method for interpolation
+%       raylink_method     -  method for ray linking. For 2D case, this can be
+%                              'Regula-Falsi' or 'Secant', and for 3D case, this
+%                              can be 'Quasi-Newton'. 'Regula-Falsi' converges
+%                              well with initial guess far from true, but it
+%                              converges solwly. 'Secant' and 'Quasi-Newton'
+%                              are fast, but converge badly for initial guesses
+%                              far from true, and are therefore used
+%                              through iteratively reconstruction of the
+%                              sound speed, where the linked ray for each
+%                              iteration is used as initial guess for ray
+%                              linking for the next iteration.
+%       raytracing_method   - the method for ray tracing, which can be
+%                             'Mixed-step', 'Dual-update', 'Characteristics',
+%                             or 'Runge-kutta-2nd'.
+
+
+%        
 % OPTIONAL INPUTS:
 %
 % OUTPUTS:
@@ -69,11 +90,11 @@ function [polar_direction_residual, interp_coeff_vec, cartesian_pos_endpoint,...
 
 % ABOUT:
 %       author          - Ashkan Javaherian
-%       date            - 30.12.2019
-%       last update     - 30.12.2019
+%       date            - 30.11.2019
+%       last update     - 07.09.2021
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 % allocate a dim x 1 vector for
@@ -88,6 +109,7 @@ switch dim
                 [cartesian_initial_direction(1), cartesian_initial_direction(2)] = ...
                     pol2cart(polar_initial_direction, 1);
             case 'Regula-Falsi'
+                
                 % Using 'Regula falsi' method, the origin of polar coordinate 
                 % is set along a line segment from emitter to the
                 % origin, so the the polar direction of a geometrical vector
@@ -98,36 +120,48 @@ switch dim
                     polar_initial_direction);
         end
         
-        
-        
     case 3
         
         [cartesian_initial_direction(1), cartesian_initial_direction(2),...
             cartesian_initial_direction(3)] = sph2cart(polar_initial_direction(1),...
             polar_initial_direction(2), 1);
-        
-        
+         
 end
 
-% trace the ray
-% calculate the cartesian points along the ray and their associated
-% interpolation coefficients
-switch interp_method
-    case 'Bilinear'
-[cartesian_pos_endpoint, interp_coeff_vec] = calcRay(...
-    refractive, refractive_gradient_x, refractive_gradient_y,...
-    refractive_gradient_z, cartesian_position_emitter, cartesian_initial_direction,...
-    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds,...
-    grid_size, dim, detec_radius, mask, calc_coeffs);
-    case 'Bspline'
-[cartesian_pos_endpoint, interp_coeff_vec] = calcRayRungeKutta2ndBspline(... % calcRayBspline(... %   
-    refractive, cartesian_position_emitter, cartesian_initial_direction, ...
-    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds,...
-    grid_size, dim, detec_radius, mask,...
-    raytogrid_indices_x, raytogrid_indices_y,...
-     raytogrid_indices_z, raytogrid_coeff_matrix, ...
-     raytogrid_coeff_derivative_matrix, calc_coeffs);
+
+% compute the ray and its end point if the ray is computed as part of ray linking,
+% or the ray-to-grid interpolation coefficients if the ray is already
+% linked between an emitter-receiver pair.
+switch raytracing_method
+    case 'Mixed-step'
+        
+[cartesian_pos_endpoint, interp_coeff_vec] = calcRayMixedStep(refractive,...
+    ray_fields_params, cartesian_position_emitter, cartesian_initial_direction,...
+    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim,...
+    detec_radius, mask, calc_coeffs);
+
+    case 'Dual-update'
+        
+[cartesian_pos_endpoint, interp_coeff_vec] = calcRayDualUpdate(refractive,...
+    ray_fields_params, cartesian_position_emitter, cartesian_initial_direction,...
+    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim,...
+    detec_radius, mask, calc_coeffs);
+
+    case 'Characteristics'
+        
+[cartesian_pos_endpoint, interp_coeff_vec] = calcRayCharacteristics(refractive,...
+    ray_fields_params, cartesian_position_emitter, cartesian_initial_direction,...
+    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim,...
+    detec_radius, mask, calc_coeffs);
+
+    case 'Runge-kutta-2nd'
+        
+[cartesian_pos_endpoint, interp_coeff_vec] = calcRayRungeKutta2nd(refractive,...
+    ray_fields_params, cartesian_position_emitter, cartesian_initial_direction,...
+    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim,...
+    detec_radius, mask, calc_coeffs); 
 end
+
 
 % the cartesian direction of the geometrical vector linking the emitter
 % to the last point of the ray
@@ -160,7 +194,6 @@ switch dim
             cartesian_direction_endpoint(3));
 end
 
-
 % calculate the polar residual, the discrepancy between the polar
 % unit vector from emitter to the receiver and polar unit vector from
 % emitter to the last point of the ray, if requested
@@ -172,9 +205,6 @@ if ~isempty(polar_direction_receiver)
 else
     polar_direction_residual = [];
 end
-
-
-
 
 
 end

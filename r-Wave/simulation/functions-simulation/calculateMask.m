@@ -52,8 +52,8 @@ function [weight,point_indices,indices_in_union,union_indices] = calculateMask(k
 %       date            - 15.12.2019
 %       last update     - 15.12.2019
 %
-% This function is part of the r-Wave Toolbox (http://www.r-wave.org)
-% Copyright (C) 2020 Ashkan Javaherian and Ben Cox
+% This function is part of the r-Wave Toolbox
+% Copyright (C) 2022 Ashkan Javaherian
   
 
 para.upsampling_rate = 16;

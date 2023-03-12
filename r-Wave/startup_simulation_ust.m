@@ -1,4 +1,4 @@
-% startup.m file for simulation using k-Wave toolbox
+% startup.m file for ray-based toolbox
 %
 % author: Ashkan Javaherian
 % date: 30th June 2020
@@ -22,6 +22,12 @@ addpath(genpath(root_path))
 % get the main directory for saving and later loading the data
 % get the machine name
 [~, machine_name] = system('hostname');
+
+% for testing if the codes work with any other machines.
+% the user doesn't need to change it.
+machine_name = 'ashkan';
+
+
 % 'kinsler' and 'nyborg' are the machine names used by the code's author.
 if any(strcmp(machine_name(1:end-1), {'kinsler','nyborg'}))
     
@@ -63,7 +69,8 @@ else
     
     % by setting oa_breast_path nan, the breast phanstom is loaded from the
     % local directory
-    oa_breast_path = nan;
+    % oa_breast_path = nan;
+    oa_breast_path = 'simulation/data/phantom/OA-BREAST/';
     
 end
 
@@ -84,9 +91,10 @@ makeDirectory(local_res_path);
 % messages informing the users about the external software resources used for developing the ray-based toolbox
 
 % the digital breast phantom developed by Mark Anastasio's group
-disp(['This toolbox uses Mark Anastasio breast phantom:'...
+disp(['This toolbox uses the digital oa-breast-database phantom:'...
+    'Please download it via the link:'...
     'https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/' ...
-    'Please cite the paper:'...
+    'and add it to the path:...simulation/data/phantom/OA-BREAST/Neg_47_Left...'...
     'Lou Y, Zhou W, Matthews T P, Appleton C M and Anastasio M A 2017,'...
     'Generation of anatomically realistic numerical phantoms for photoacoustic and ultrasonic breast'...
     'imaging, J. Biomed. Opt. 22041015.']);
@@ -97,9 +105,9 @@ disp(['This toolbox uses k-wave toolbox for wave simulations. Please read: http:
     'wave-fields," J. Biomed. Opt., vol. 15, no. 2, p. 021314, 2010.'])
 
 % the off-grid toolbox
-disp(['This toolbox uses off-grid toolbox. Please cite:'...
-    'E. S. Wise, B. T. Cox, J. Jaros, B. E. Treeby, Representing arbitrary acoustic source and sensor distributions in'...
-    'Fourier collocation methods, J. Acoust. Soc. of Am., vol. 146, no. 1, pp. 278-288, 2019.'])
+%disp(['This toolbox uses off-grid toolbox. Please cite:'...
+%    'E. S. Wise, B. T. Cox, J. Jaros, B. E. Treeby, Representing arbitrary acoustic source and sensor distributions in'...
+%    'Fourier collocation methods, J. Acoust. Soc. of Am., vol. 146, no. 1, pp. 278-288, 2019.'])
 
 % messages informing the users about the original materials used for developing this
 % toolbox

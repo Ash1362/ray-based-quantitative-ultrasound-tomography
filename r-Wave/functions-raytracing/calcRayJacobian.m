@@ -38,7 +38,7 @@ function [jacobian_matrix] = calcRayJacobian(solve_ray, polar_initial_direction,
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 

@@ -23,7 +23,7 @@ function makeDirectory(info_path)
 % See also
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian
+% Copyright (c) 2022 Ashkan Javaherian
 % 
 
 if ~exist(info_path, 'dir')

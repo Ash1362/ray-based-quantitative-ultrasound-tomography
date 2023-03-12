@@ -66,8 +66,9 @@ function [binary_mask, mask_entire_volume, interp_matrix, elapsed_time] = calcIn
 %       last update      - 15.12.2019
 %       
 %
-% This function is part of the r-Wave Toolbox (http://www.r-wave.org)
-% Copyright (C) 2020 Ashkan Javaherian and Ben Cox
+% This function is part of the r-Wave Toolbox
+% Copyright (C) 2022 Ashkan Javaherian
+
 para.Trans_Geom      = 'point';
 para.Interp_Method   = 'offgrid';
 para.simulate_on_grid = false;
@@ -88,18 +89,17 @@ end
 % set the starting point for measuring the running time
 ts = tic; 
 switch para.Interp_Method
-    case {'nearest','linear','fourier'}
-        error('This interpolation method is not supported yet.')
-        interp_args = {};
+    case {'nearest'}
+      
+        %interp_args = {};
         % define the radius and upsampling rate for trasducers with finite area (volume)
-        if ~strcmp(para.Trans_Geom,'point')
-            interp_args = {interp_args{:}, 'radius', para.radius, 'upsampling_rate', para.upsampling_rate};
-        end
-        if strcmp(para.Interp_Method,'fourier')
-            interp_args = {interp_args{:}, 'N_mask', para.N_mask, 'tol', para.tol};
-        end
-        [binary_mask, interp_matrix] = constructSensorArrayUSCT(kgrid, tr_pos,...
-            para.Trans_Geom, para.Interp_Method, interp_args{:});
+        %if ~strcmp(para.Trans_Geom,'point')
+        %    interp_args = {interp_args{:}, 'radius', para.radius, 'upsampling_rate', para.upsampling_rate};
+        %end
+        %if strcmp(para.Interp_Method,'fourier')
+        %    interp_args = {interp_args{:}, 'N_mask', para.N_mask, 'tol', para.tol};
+        %end
+        [binary_mask, interp_matrix] = interpNeighborUST(kgrid, transducer_position);
     case{'offgrid'}
         interp_args = {'Trans_Geom',para.Trans_Geom, 'Interp_Method', para.Interp_Method,...
             'radius', para.radius, 'upsampling_rate', para.upsampling_rate};

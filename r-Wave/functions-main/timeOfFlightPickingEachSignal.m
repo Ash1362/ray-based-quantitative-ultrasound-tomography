@@ -21,13 +21,16 @@ function [tof] = timeOfFlightPickingEachSignal(signal,t_array, T, time_window_in
 %                           window
 %
 % OPTIONAL INPUTS:
-%        'Method'              - the method for calculation of the first-arrival
-%                                of the signals. This can be
-%                                'Modified_AIC',
-%                                'Short_Time_Average/Long_Time_Average',
-%                                'Modified_Energy_Ratio',
-%                                'Modified_Coppens'
-%                                'Modified_Short_Term_Average/Long_Term_Average'
+%        'Method'         - the method for calculation of the first-arrival
+%                           of the signals. This must be set:
+%                          'Modified_AIC'. Other choices are
+%                           included, but those are for testing purposes
+%                           for developing codes, and the user will get error
+%                           for those cases.
+%                           'Short_Time_Average/Long_Time_Average',
+%                           'Modified_Energy_Ratio',
+%                           'Modified_Coppens'
+%                           'Modified_Short_Term_Average/Long_Term_Average'
 %       'Length_moving_window'  - a vector indicating the length of the
 %                                 moving windows:
 %                                 1 - backward window, 2 - long window,
@@ -49,7 +52,7 @@ function [tof] = timeOfFlightPickingEachSignal(signal,t_array, T, time_window_in
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 para.Method = 'Modified_AIC';

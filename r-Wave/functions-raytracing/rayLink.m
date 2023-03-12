@@ -3,19 +3,23 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
     refractive, cartesian_position_emitter, cartesian_position_receivers, polar_direction_allreceivers,...
     polar_initial_direction_allreceivers, xvec, yvec, zvec, pos_grid_first,...
     pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_radius, mask, para)
-%RSAYLINK constructs the system matrix for a single emitter
+%RAYLINK constructs the system matrix for a single emitter
 %
 % DESCRIPTION:
-%           rayLink solves the ray linking inverse problem for all receivers
-%           corresponding to an emitter, and store the information about the end
-%           point of the linked rays. Subsequently, a num_receiver x num_gridpoints
-%           sparse metrix, which contains the interpolation coefficients for the linked rays
-%           for all receivers, are cponstructed
+%           rayLink first computes the ray which links a single emitter to 
+%           each receiver. This is done via solving the inverse problem of ray
+%           linking, i.e., iteratively adjusting the initial direction of the
+%           ray until the interception of the ray with the detection sutface (ring) 
+%           matches the centre of the receiver within a tolerance. The ray-to-grid
+%           interpolation coefficients along the linked ray (the optimal ray after
+%           solving the ray linking inverse problem) will then form a row
+%           of sparse matrix. This function is run for each emitter
+%           separately.
 % USAGE:
 %
 %
 % INPUTS:
-%       ray_fields_params      - a struct containing the specified variables for ray tracing
+%       ray_fields_params     - a struct containing the specified variables for ray tracing
 %                              using a 'Bilinear' intrerpolation, this includes the directional
 %                              gradients of the refrective index
 %                              distribution:
@@ -25,17 +29,17 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %                              using a'Bspline' interpolation, this
 %                              includes the matrices for intertpolation:
 %       'raytogrid_indices_x'   - x indices for B-spline interpolation
-%       'raytogrid_indices_y'   - y indices for B-spline interpolation                                  
+%       'raytogrid_indices_y'   - y indices for B-spline interpolation
 %       'raytogrid_indices_z'   - z indices for B-spline interpolation
 %     'raytogrid_coeff_matrix'  - matrix for calculating B-spline
 %                                 interpolation coefficients of the field
 %     'raytogrid_coeff_derivative_matrix' - matrix for calculating B-spline
-%                                 interpolation coefficients of the directional 
+%                                 interpolation coefficients of the directional
 %                                 gradientsof the field
 %       cartesian_position_emitter - a dim x 1 cartesian position of the emitter
 %       cartesian_position_receivers - a dim x num_receiver cartesian
 %                                       position of all receivers
-%       polar_direction_allreceivers - a (dim-1) x num_receiver vector of the polar direction of 
+%       polar_direction_allreceivers - a (dim-1) x num_receiver vector of the polar direction of
 %                                    unit geometrical vectors from emitter
 %                                    to all the receivers
 %       polar_initial_direction_allreceivers - a (dim-1) x num_receiver matrix of the polar initial
@@ -52,28 +56,43 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %       ray_spacing          - a saclar representing the ray spacing [m]
 %       grid_size            - the size of the grid
 %       dim                  - the dimension of the medium
-%       mask                 - a binary mask with the same size as the grid 
+%       mask                 - a binary mask with the same size as the grid
 %                              for an indication to the grid points
 %                              associated with inhomogeneities (object)
 %       ray_spacing          - the spacing along the ray [m]
 %       para                 - a struct containing the fields:
-%       'varepsilon'         - the stopping criterion for ray linking inverse problem 
+%       'varepsilon'         - the stopping criterion for ray linking inverse problem
 %       'max_iter'           - the maximum number of iterations for ray
 %                              linking inverse problem
-%       'raylink_method'     - method for ray linking
-%       'interp_method'      - method for interpolation
+%       'raylink_method'     -  method for ray linking. For 2D case, this can be
+%                              'Regula-Falsi' or 'Secant', and for 3D case, this 
+%                              can be 'Quasi-Newton'. 'Regula-Falsi' converges
+%                              well with initial guess far from true, but it
+%                              converges solwly. 'Secant' and 'Quasi-Newton'
+%                              are fast, but converge badly for initial guesses
+%                              far from true, and are therefore used
+%                              through iteratively reconstruction of the
+%                              sound speed, where the linked ray for each
+%                              iteration is used as initial guess for ray
+%                              linking for the next iteration.
+%       'raytracing_method'  - the method for ray tracing, which can be
+%                              'Mixed-step', 'Dual-update',
+%                              'Characteristics', or 'Runge-kutta-2nd'.
+%       'interp_method'      - method for interpolation, which can be
+%                              'Bilinear' or 'Bspline'
+%       '
 % OPTIONAL INPUTS:
 %
 % OUTPUTS:
 %       system_matrx_single_emitter - num_receiver x num_gridpoints  sparse
 %                                    metrix containing the raytogrid interpolation
-%                                    coefficients for all grid points 
+%                                    coefficients for all grid points
 %       optimal_polar_initial_direction_allreceivers - dim-1 x num_receiver matrix
 %                                               of the polar initial direction
 %                                               for the linked rays. this can be
 %                                               used as an initial guess for the
 %                                               next UST iteration
-%       cartesian_position_endpoint_allreceivers - dim x num_receiver matrix of cartesian position 
+%       cartesian_position_endpoint_allreceivers - dim x num_receiver matrix of cartesian position
 %                                              of the end point of the ray
 %                                              for all receivers
 %       num_rays_allreceivers               - num_receiver x 1 vector of the number of ray tracing
@@ -85,7 +104,8 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2020 Ashkan Javaherian
+
 
 
 % number of receivers
@@ -101,38 +121,6 @@ switch para.binaries_emitter_receiver
         binaries_emitter_receiver = (calcAngleEmitterReceiver(cartesian_position_emitter,...
             cartesian_position_receivers, []) < para.open_angle)' & ...
             vecnorm(cartesian_position_receivers - cartesian_position_emitter) > 0;
-end
-
-
-
-switch para.interp_method
-    case 'Bilinear'
-        
-        % get the directional gradient fields 
-        refractive_gradient_x = ray_fields_params.refractive_gradient_x;
-        refractive_gradient_y = ray_fields_params.refractive_gradient_y;
-        refractive_gradient_z = ray_fields_params.refractive_gradient_z;
-        
-        % allocate empty variables for parameters for spline interpolation
-        raytogrid_indices_x = [];
-        raytogrid_indices_y = [];
-        raytogrid_indices_z = [];
-        raytogrid_coeff_matrix = [];
-        raytogrid_coeff_derivative_matrix = [];
-        
-    case 'Bspline' 
-        
-       % allocate empty variables for the directional gradient fields 
-        refractive_gradient_x = [];
-        refractive_gradient_y = [];
-        refractive_gradient_z = [];
-        
-        % get parameters for spline interpolation
-        raytogrid_indices_x = ray_fields_params.raytogrid_indices_x;
-        raytogrid_indices_y = ray_fields_params.raytogrid_indices_y;
-        raytogrid_indices_z = ray_fields_params.raytogrid_indices_z;
-        raytogrid_coeff_matrix = ray_fields_params.raytogrid_coeff_matrix;
-        raytogrid_coeff_derivative_matrix = ray_fields_params.raytogrid_coeff_derivative_matrix;
 end
 
 
@@ -162,103 +150,46 @@ num_rays_allreceivers = zeros(num_receiver, 1);
 
 % define a handle function for tracing the ray, and obtain the information
 % this function handle solves the forward problem of ray linking inverse
-% problem
+% problem, i.e., tracing a ray given an initial direction for computing the
+% interception of the point with respect the centre of receiver. Only for
+% the linked (optimal ray), this function is used for computing the
+% ray-to-grid interpolation coefficients along the linked ray.
 solve_ray = @(polar_initial_direction, polar_direction_receiver, calc_coeffs)calcRayParameters(...
-    refractive, refractive_gradient_x, refractive_gradient_y, refractive_gradient_z,...
-    cartesian_position_emitter, polar_direction_receiver, polar_initial_direction,...
-    xvec, yvec, zvec, pos_grid_first, pos_grid_end, grid_spacing, ray_spacing, ...
-    grid_size, dim, detec_radius, mask, raytogrid_indices_x, raytogrid_indices_y,...
-    raytogrid_indices_z, raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix, ...
-    calc_coeffs, para.raylinking_method, para.interp_method);
+    refractive, ray_fields_params, cartesian_position_emitter, polar_direction_receiver,...
+    polar_initial_direction, xvec, yvec, zvec, pos_grid_first, pos_grid_end, grid_spacing, ray_spacing,...
+    grid_size, dim, detec_radius, mask, calc_coeffs, para.raylinking_method, para.raytracing_method);
 
 %% ========================================================================
 % INITIAL GUESS
 %==========================================================================
 
-switch para.raylinking_method
+if strcmp(para.raylinking_method, 'Regula-Falsi')
+    
+    % choose initial guess for the left and right polar
+    % initial direction.
+    
+    % By a ray initialisation using a 'Local' approach, the left and right
+    % polar intial directions (initial interval) are chosen the same for
+    % all receivers, i.e. approximately -pi/2, +pi/2
+    % with respect to a geomterical vector from the emitter to the
+    % centre of the detection circle. Both initial angles are chosen a bit
+    % smaller in order to ensure the initial directions of the rays send the rayd
+    % inside the detection circle, approximately tangent to the periphery of the circle
+    polar_initial_direction_left  =  - pi/2 * (1 - (1/num_receiver) + para.varepsilon);
+    polar_initial_direction_right =  + pi/2 * (1 - (1/num_receiver) + para.varepsilon);
+    
+    % calculate the polar direction of unit geometrical
+    % vectors from emitter to the last point of the rays
+    % solved by the left and right polar initial directions
+    % because these two rays are tangent to the circle,
+    % they are intercepted by the the detection surface
+    % very soon, and thus they are very short, and give
+    % a maximal range for the left and right initial
+    % directions
+    [ ~, ~, ~, polar_direction_endpoint_left] = feval(solve_ray, polar_initial_direction_left, [], false);
+    [ ~, ~, ~, polar_direction_endpoint_right] = feval(solve_ray, polar_initial_direction_right, [], false);
     
     
-    case 'Regula-Falsi'
-        
-        % choose initial guess for the left and right polar
-        % initial direction.
-        switch para.raylinking_initialisation
-            case 'Local'
-                % By a ray initialisation using a 'Local' approach, the left and right
-                % polar intial directions (initial interval) are chosen the same for
-                % all receivers, i.e. approximately -pi/2, +pi/2
-                % with respect to a geomterical vector from the emitter to the
-                % centre of the detection circle. Both initial angles are chosen a bit
-                % smaller in order to ensure the initial directions of the rays send the rayd
-                % inside the detection circle, approximately tangent to the periphery of the circle
-                polar_initial_direction_left  =  - pi/2 * (1 - (1/num_receiver) + para.varepsilon);
-                polar_initial_direction_right =  + pi/2 * (1 - (1/num_receiver) + para.varepsilon);
-                
-                % calculate the polar direction of unit geometrical
-                % vectors from emitter to the last point of the rays
-                % solved by the left and right polar initial directions
-                % because these two rays rae tangent to the circle,
-                % they are intercepted by the the detection surface
-                % very soon, and thus they are very short, and give
-                % a maximal range for the left and right initial
-                % directions
-                [ ~, ~, ~, polar_direction_endpoint_left] = feval(solve_ray, polar_initial_direction_left, [], false);
-                [ ~, ~, ~, polar_direction_endpoint_right] = feval(solve_ray, polar_initial_direction_right, [], false);
-                
-            case 'Global'
-                % By a ray initialisation using a 'Global' approach,
-                % the left and right polar intial directions (initial interval)
-                % are chosen individually for each receiver. A number of rays
-                % with even angles are simultaneously solved. For each receiver,
-                % a pair of rays with endpoints closest to the receiver,
-                % and encompass the receiver are chosen as the
-                % initial guess for the the left and right polar
-                % initial directions. This pair will give opposite
-                % signs for the residual corresponding to the polar direction of
-                % the end point of the rays, and forms a very tight (optimal) initial interval
-                % for applying the 'Regula Falsi' method.
-                [polar_direction_initial_guess_allreceivers, res_initial_guess_allreceivers] =...
-                    initialiseAngles(solve_ray, polar_direction_allreceivers,...
-                    dim, 1, para.varepsilon, para.raylinking_method);
-        end
-        
-    otherwise
-        
-        
-        % choose initial guess for the left and right polar
-        % initial direction.
-        switch para.raylinking_initialisation
-            
-            
-            case 'Local'
-                
-                % By a ray initialisation using a 'Local' approach,
-                % the optimal ray from solving the ray linking inverse problem
-                % for the last previous UST iteration will be used
-                % for the initial guess for solving the ray linking
-                % inverse problem for the current UST iteration.
-                polar_direction_initial_guess_allreceivers = [];
-                res_initial_guess_allreceivers = [];
-            case 'Global'
-                
-                
-                % By a ray initialisation using a 'Global'
-                % approach, a number of rays with even initial
-                % directions are first solved. For each receiver, the ray
-                % with the closest distance to the receiver may be
-                % used as the initial guess. But for deciding on
-                % that, it is first compared with the ray with
-                % an initial guess from the optimal solution of the
-                % ray linking for the last previous UST iteration. The
-                % closer ray will be used as initial guess for
-                % the polar initial direction of the ray for solving the
-                % ray linking inverse problem in the current UST iteration.
-                [polar_direction_initial_guess_allreceivers, res_initial_guess_allreceivers] =...
-                    initialiseAngles(solve_ray, polar_direction_allreceivers,...
-                    dim, 1, para.varepsilon, para.raylinking_method);
-        end
-        
-        
 end
 
 
@@ -276,28 +207,17 @@ for ind_receiver = 1 : num_receiver
             case 'Regula-Falsi'
                 
                 % the initial left and right initial directions
-                switch para.raylinking_initialisation
-                    case 'Local'
-                        
-                        polar_direction_initial_guess(1) = polar_initial_direction_left;
-                        polar_direction_initial_guess(2) = polar_initial_direction_right;
-                        res_initial_guess(1) = polar_direction_endpoint_left...
-                            - polar_direction_allreceivers(ind_receiver);
-                        res_initial_guess(2) = polar_direction_endpoint_right...
-                            - polar_direction_allreceivers(ind_receiver);
-                    case 'Global'
-                        
-                        polar_direction_initial_guess(1) = polar_direction_initial_guess_allreceivers(1, ind_receiver);
-                        polar_direction_initial_guess(2) = polar_direction_initial_guess_allreceivers(2, ind_receiver);
-                        res_initial_guess(1) = res_initial_guess_allreceivers(1, ind_receiver);
-                        res_initial_guess(2) = res_initial_guess_allreceivers(2, ind_receiver);
-                end
+                polar_direction_initial_guess(1) = polar_initial_direction_left;
+                polar_direction_initial_guess(2) = polar_initial_direction_right;
+                res_initial_guess(1) = polar_direction_endpoint_left...
+                    - polar_direction_allreceivers(ind_receiver);
+                res_initial_guess(2) = polar_direction_endpoint_right...
+                    - polar_direction_allreceivers(ind_receiver);
+                
                 
                 [interp_coeff_vec, ~ , cartesian_position_endpoint, num_rays] = solveRegulaFalsi(solve_ray,...
                     polar_direction_allreceivers(:, ind_receiver), polar_direction_initial_guess,...
                     res_initial_guess, para.varepsilon, para.max_iter);
-                
-                
                 
             case 'Secant'
                 [interp_coeff_vec, polar_initial_direction, cartesian_position_endpoint, num_rays]=...
@@ -305,6 +225,10 @@ for ind_receiver = 1 : num_receiver
                     polar_initial_direction_allreceivers(ind_receiver), para.varepsilon, para.max_iter);
                 
             case 'Newton'
+                
+                Error(['This approacch is deprecated, because many rays must be traced for solving'...
+                    'the inverse problem of ray linking.'])
+                
                 % ray linking using Newton's method
                 [interp_coeff_vec, polar_initial_direction, cartesian_position_endpoint, num_rays]=...
                     solveNewton(solve_ray, polar_direction_allreceivers(:, ind_receiver),...
@@ -312,14 +236,13 @@ for ind_receiver = 1 : num_receiver
                 
             case 'Quasi-Newton'
                 
-                
                 % ray linking using Quasi-Newton method
                 link_args = {'Method', 'Good-Broyden', 'initial_derivative', 'finite-difference',...
                     'smooth', true};
                 
                 [interp_coeff_vec, polar_initial_direction, cartesian_position_endpoint, num_rays]=...
                     solveQuasiNewton(solve_ray, polar_direction_allreceivers(:, ind_receiver),...
-                     polar_initial_direction_allreceivers(:, ind_receiver), para.varepsilon, para.max_iter, [], link_args{:});
+                    polar_initial_direction_allreceivers(:, ind_receiver), para.varepsilon, para.max_iter, [], link_args{:});
         end
         
     else
@@ -391,6 +314,6 @@ end
 system_matrix_single_emitter = sparse(ind_receivers, ind_gridpoints,...
     val_coeffs, num_receiver, prod(grid_size));
 
-            
+
 
 end

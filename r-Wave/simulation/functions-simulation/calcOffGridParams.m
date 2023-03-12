@@ -49,8 +49,8 @@ function [mask, C] = calcOffGridParams(kgrid, tr_pos, z_offset, varargin)
 %       last update      - 15.12.2019
 %       
 %
-% This function is part of the r-Wave Toolbox (http://www.r-wave.org)
-% Copyright (C) 2020 Ashkan Javaherian and Ben Cox
+% This function is part of the r-Wave Toolbox 
+% Copyright (C) 2022 Ashkan Javaherian 
 
 
 para.Trans_Geom      = 'point';

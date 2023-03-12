@@ -56,15 +56,16 @@ function [tof, tof_het, tof_hom] = timeOfFlightPicking(data_het, data_hom,...
 %
 % OPTIONAL INPUTS:
 %        'nWorkerPool'          - the number of used workers
-%        'Method'               - the method for calculation of the first-arrival
-%                                 of the signals. This must be set
-%                                 'Modified_AIC'. Other methods
-%                                 'Short_Time_Average/Long_Time_Average',
-%                                 'Modified_Energy_Ratio',
-%                                 'Modified_Coppens'
-%                                 'Modified_Short_Term_Average/Long_Term_Average'
-%                                  are for the evaluation purposes, and are
-%                                  used only by the code developer.
+%        'method'               - the method for calculation of the first-arrival
+%                                of the signals. This must be set:
+%                                'Modified_AIC'. Other choices are
+%                                included, but those are for testing purposes
+%                                for developing codes, and the user will get error
+%                                for those cases.
+%                                'Short_Time_Average/Long_Time_Average',
+%                                'Modified_Energy_Ratio',
+%                                'Modified_Coppens'
+%                                'Modified_Short_Term_Average/Long_Term_Average'
 %        'SoundSpeedRanges'     - a vector of size 1 x 2 containing a
 %                                 minimal and maximal for the sound speed
 %                                 [m/sec]
@@ -148,7 +149,7 @@ end
 
 
 % the method used for calculation of the first arrival
-picking_method = para.Method;
+picking_method = 'Modified_AIC'; % para.Method;
 
 % the number of emitters
 num_emitter = size(emitter.positions, 2);

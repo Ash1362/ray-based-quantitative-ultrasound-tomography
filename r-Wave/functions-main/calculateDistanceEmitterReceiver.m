@@ -40,8 +40,8 @@ function [distances] = calculateDistanceEmitterReceiver(emitter_positions,...
 %       date            - 30.12.2019
 %       last update     - 30.12.2019
 %
-% This script is part of the r-Wave Tool-box (http://www.r-wave.org).
-% Copyright (c) 2020 Ashkan Javaherian and Ben Cox
+% This script is part of the r-Wave Tool-box 
+% Copyright (c) 2020 Ashkan Javaherian 
 
 
 num_emitter = size(emitter_positions, 2);

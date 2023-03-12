@@ -1,7 +1,7 @@
 function [img, recon_grid, tof_discrepancy, ray_initial_angles, out, para] =...
     reconstructTimeofFlightImage(data_object, data_water, time_array,...
     emitter, receiver, sound_speed_water, z_offset, kgrid,...
-    sound_speed_ground_truth, varargin)
+    sound_speed_ground_truth, tof_path, varargin)
 %RECONSTRUCTTIMEOFFLIGHTIMAGE computes a sound speed image using time-of-flights of
 %the ultarsound time series.
 %   
@@ -56,6 +56,7 @@ function [img, recon_grid, tof_discrepancy, ray_initial_angles, out, para] =...
 %                           is reconstructed from simulated data. This is
 %                           used for evaluation purposes during image
 %                           reconstruction.
+%      tof_path         - the data path for storing the TOFs
 %  
 %      
 % OPTIONAL INPUTS:
@@ -102,8 +103,8 @@ function [img, recon_grid, tof_discrepancy, ray_initial_angles, out, para] =...
 %                               equivalent.
 %      'minimum_distance_coeff' - a scalar coefficient indicating the minimum distance
 %                            of the transducers for including in the image
-%                            reconstruction. The emitter-receiver pairs with distances 
-%                            less than minimum_distance = minimum_distance_coeff * detec_radius 
+%                            reconstruction. The emitter-receiver pairs with distances
+%                            less than minimum_distance = minimum_distance_coeff * detec_radius
 %                            The measured signals associated with close emitter-receiver
 %                            pairs may be deteriorated by the effects of directivity
 %                            of the transducers. In addition, rays linking the
@@ -115,13 +116,15 @@ function [img, recon_grid, tof_discrepancy, ray_initial_angles, out, para] =...
 %                                the included receivers will be inside a cone
 %                                with axis the vector connecting the emitter to
 %                                the centre of the detection surface.
-
 %      'smoothing_window_size' - the size of the smoothing window applied
 %                              on the updates of the refractive index.
 %      'raylinking_method'     - the method for ray linking. This can be either
 %                              'Regula-Falsi' or 'Secant' for 2D case, or 
-%                              'Quasi-Newton' for 3D case. 
-%      'raytogrid_interp'      - the method for interplating from grid points to
+%                              'Quasi-Newton' for 3D case.
+%      'raytracing_method'  -  the method for ray tracing, which can be
+%                              'Mixed-step', 'Dual-update', 'Characteristics',
+%                              or 'Runge-kutta-2nd'. (Default : 'Mixed-step')
+%      'gridtoray_interp'      - the method for interplating from grid points to
 %                                rays and vice versa. This can be 'Bilinear', or
 %                               'Bspline'.
 %      'max_raylinking_iter'   - the maximum number of iterations for ray
@@ -196,13 +199,14 @@ function [img, recon_grid, tof_discrepancy, ray_initial_angles, out, para] =...
 %       date            - 18.03.2020
 %       last update     - 05.10.2022
 %
-% This script is part of the r-Wave Tool-box (http://www.r-wave.org).
-% Copyright (c) 2020 Ashkan Javaherian and Ben Cox
+% This script is part of the r-Wave Toolbox 
+% Copyright (c) 2022 Ashkan Javaherian
 
 
 para.num_worker_pool = 16;
 para.reconstruct_image = true;
 para.matrix_construction_method  = 'bent-ray';
+para.raytracing_method = 'Mixed-step';
 para.linearisation_approach = 'absolute';
 para.linear_subproblem_method = 'sart';
 para.grid_spacing = 1e-2;
@@ -219,7 +223,7 @@ switch dim
     case 2
         
         para.raylinking_method ='Secant';
-        para.raytogrid_interp = 'Bspline';
+        para.gridtoray_interp = 'Bspline';
         para.max_raylinking_iter = 1000;
         para.raytogrid_spacing = 1/2;
         para.emittersegments_to_nworkers = 4;
@@ -229,7 +233,7 @@ switch dim
     case 3
         
         para.raylinking_method ='Quasi-Newton';
-        para.raytogrid_interp = 'Bilinear';
+        para.gridtoray_interp = 'Bilinear';
         para.max_raylinking_iter = 500;
         para.raytogrid_spacing = 1;
         para.emittersegments_to_nworkers = 32;
@@ -253,7 +257,10 @@ if strcmp(para.linearisation_approach, 'absolute') && ...
         'converges very slowly. The user must use ''conjuage_gradient'' or ''sart''.'])
 end
     
-%if strcmp(para.linearisation_approach, 'difference')  && ... 
+if strcmp(para.linearisation_approach, 'difference')
+    error(['This linearisation approach has been deprecated, and will be omitted.'...
+        'Please use only the absolute approach for linearisation!'])
+end
 %    ~strcmp(para.linear_subproblem_method, 'steepest_descent')
 %    error(['If the approach taken for linearisation is ''difference'', the approach for'...
 %    'solving the linearised subproblem must be set ''steepest_descent''.'])
@@ -389,13 +396,13 @@ end
             end
     end
     
-% get the normalised radius of the mask for image reconstruction
-switch para.linearisation_approach
-    case 'absolute'
-        para.mask_coeff = 1.03; 
-    case 'difference'
-        para.mask_coeff= 0.87;
-end
+    % get the normalised radius of the mask for image reconstruction
+    switch para.linearisation_approach
+        case 'absolute'
+            para.mask_coeff = 1.03;
+        case 'difference'
+            para.mask_coeff = 0.87;
+    end
 
 % read additional arguments or overwrite default ones
 if(~isempty(varargin))
@@ -419,11 +426,6 @@ if nnz([isempty(data_object), isempty(data_water)]) == 1
 end
 
 
-% get the directory fot time-of-flight discrepancies
-tof_path  = ['simulation/data/' num2str(dim) 'D/'];
-
-% make the directory fot time-of-flight discrepancies
-makeDirectory(tof_path);
 
 % get the Boolean controlling whether the thime-of-flights are computed or
 % loaded.
@@ -444,20 +446,11 @@ disp(['The method for solving the linearised subproblem is:'...
     para.linear_subproblem_method])
 
 % a factor for the extension of the grid beyond the maxium position of the
-% transducers along each Cartesian coordinate
-switch para.raytogrid_interp
-    case 'Bilinear'
-        
-        grid_expansion_coeff = 1 + 0.02 * 1000 * para.grid_spacing; % 1.02;
-    case 'Bspline'
-        
-        % B-spline uses four adjacent grid points for interpolation, so the
-        % grid is enlarged such that the adjacent grid points about the
-        % grid points close to the edge of grid does not exceed the edge of 
-        % the computational grid
-        grid_expansion_coeff = 1 + 0.07 * 1000 * para.grid_spacing;  % 1.07
-        
-end
+% transducers along each Cartesian coordinate so that there are enough
+% neigboring points for interpolation. the larger interpolation (B-spline)
+% was considered.
+
+grid_expansion_coeff = 1 + 0.07 * 1000 * para.grid_spacing;  % 1.07
 
 %% ========================================================================
 % MAKE THE GRID FOR IMAGE RECONSTRUCTION
@@ -513,37 +506,23 @@ switch recon_grid.dim
         
        % get the maximum z coordinate for the mask for ray tracing and
        % image reconstruction
-       z_mask_max = 1e-2; % 8e-3;
+       z_mask_max = 8e-3; 
        
        % get a binary mask for ray tracing
         mask_raytracing = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2<= ...
-            (para.mask_coeff * detec_radius)^2  &   recon_grid.z < z_mask_max;
+            (para.mask_coeff * detec_radius)^2   &   recon_grid.z < z_mask_max;
         
         switch para.linearisation_approach
             case 'absolute'
                 % get a binary mask for image reconstruction
                 mask_reconst = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2<= ...
-                    ((para.mask_coeff-0.15) * detec_radius)^2  &   recon_grid.z < z_mask_max;   %  - 5e-3;
+                    ((para.mask_coeff-0.15) * detec_radius)^2  &   recon_grid.z < z_mask_max - 6e-3;
             case 'difference'
                 % get a binary mask for image reconstruction
                 mask_reconst = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2<= ...
-                    ((para.mask_coeff-0.05) * detec_radius)^2  &   recon_grid.z < z_mask_max;   %  - 5e-3;
+                    ((para.mask_coeff-0.05) * detec_radius)^2  &   recon_grid.z < z_mask_max - 6e-3;
         end
-        
-      % get a binary mask for gradient of the refractive index
-      % switch para.linearisation_approach
-      %      case 'absolute'
-                % get a binary mask for image reconstruction
-      %          mask_reconst = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2<= ...
-      %              ((para.mask_coeff-0.20) * detec_radius)^2  &   recon_grid.z < z_mask_max - 6e-3;
-      %      case 'difference'
-      %          % get a binary mask for image reconstruction
-      %          mask_reconst = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2<= ...
-      %             ((para.mask_coeff-0.08) * detec_radius)^2  &   recon_grid.z < z_mask_max - 6e-3;
-      %  end
-        
-     
-        
+         
 end
 
 if do_calculate_tofs
@@ -577,15 +556,14 @@ tof_args = {'nWorkerPool', para.num_worker_pool, 'Method', 'Modified_AIC',...
         % compute the discrepancy of time-of-flights [sec]
         tof_discrepancy = tof_het - tof_hom;
         
-        % get the tof data
-        
+        % get the tof data 
         tof_data = vectorise(tof_discrepancy);
         
         if para.emitter_downsampling_rate == 1 && para.receiver_downsampling_rate == 1
             
         % save the stack vector of time-of-flight discrepancies, if the emitters and receivers
         % are not downsampled.
-        save([tof_path, 'tof_sinogram.mat'], 'tof_data');
+        save([tof_path, '_tof_sinogram.mat'], 'tof_data');
         end
         
     else
@@ -601,7 +579,7 @@ tof_args = {'nWorkerPool', para.num_worker_pool, 'Method', 'Modified_AIC',...
         num_emitter = size(emitter.positions, 2);
         
         % load the map of time-of-flight discrepancies       
-        load([tof_path, 'tof_sinogram.mat'], 'tof_data');
+        load([tof_path, '_tof_sinogram.mat'], 'tof_data');
         
         tof_discrepancy = reshape(tof_data,...
             [para.receiver_downsampling_rate * num_receiver,...
@@ -628,7 +606,8 @@ water.sound_speed_only_water = sound_speed_water;
 reconst_args = {'matrix_construction_method', para.matrix_construction_method,...
     'linearisation_approach', para.linearisation_approach,...
     'linear_subproblem_method', para.linear_subproblem_method,...
-    'raytogrid_interp', para.raytogrid_interp,...
+    'raytracing_method', para.raytracing_method,...
+    'gridtoray_interp', para.gridtoray_interp,...
     'num_iterout', para.num_iterout, 'num_iterin', para.num_iterin,...
     'step_length', para.step_length, 'binaries_emitter_receiver',...
     para.binaries_emitter_receiver,...

@@ -50,7 +50,7 @@ function [recon_grid] = makeReconstructionGrid(grid_spacing, maximum_position, v
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 para.grid_expansion = [1.02, 1.02, 1.02];

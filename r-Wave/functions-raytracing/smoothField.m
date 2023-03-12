@@ -22,7 +22,7 @@ function [field_smoothed] = smoothField(field, num_points, value_background)
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 if nargin < 3
     value_background = 1;

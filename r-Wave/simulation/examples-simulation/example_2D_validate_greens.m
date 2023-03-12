@@ -1,0 +1,385 @@
+% Example for validation of ray approximation to Green's function
+% in approximating phase and amplitude [1] (cf. section References)
+%..........................................................................
+% The scenario is based on section 6.2. ❝Numerical validation of the ray approximation
+% to the Green’s function❞ in [1]
+%
+% The approach taken for computing the geomterical portion of the amplitudes
+% is based on paraxial ray tracing. (cf. Algorithm 1 in [1])
+
+%%=========================================================================
+% SIMULATION (OR LOAD) OF UST DATA USING K-WAVE
+%==========================================================================
+% This example first simulates (or loads) two ultrasound data after excitation
+% of a single emitter, one for only water and another for the breast in water.
+% The simulated data were recorded on all receivers. The simulations were
+% performed on a grid with spacing 0.4 mm using the k-Wave toolbox [4]. For the
+% breast-in-water data, the sound speed and absorption coefficient maps are 
+% smoothed by an averaging window of size 17 grid points. The absorption and
+% dispersion are accounted for based on a frequency-power law. The pressure
+% time series simulated on the receivers are then decomposed into phase and
+% amplitude using a Fourier transform operator.
+
+%%=========================================================================
+% GREEN'S FORMULA IN HOMOGENEOUS MEDIA (ONLY WATER)
+%==========================================================================
+% The homogeneous Green's function will then be used for approximating pressure
+% field on all receivers after excitation of the chosen single emitter and
+% propagation of the pressure field in only water. The approximated pressure
+% field on all receivers are compared to the pressure time series simulated by
+% the k-Wave in terms of phase and amplitude at the single frequency 1MHz.
+
+%%=========================================================================
+% RAY APPROXIMATION TO GREEN'S FORMULA IN HETEROGENEOUS MEDIA (BREAST-IN-WATER)
+%==========================================================================
+% The ray approximation to heterogeneous Green's function using ray tracing
+% will then be used for approximating pressure field on all receivers after
+% excitation of the chosen single emitter and propagation of the pressure field
+% in the breast in water. The approximated pressure field on all receivers
+% is compared to the pressure time series simulated by the k-Wave in terms of
+% phase and amplitude at the single frequency 1MHz. Using the Green's approach,
+% the amplitudes on the receivers are plotted before and after accounting
+% for the acoustic absorption based on the frqeuency power law. Using the Green's
+% approach, the dispersion is accounted for in computing the wrapped phases on
+% receivers.
+% It is highly recommended that papers [1] and [2], especially the details
+% given in the section ❝Numerical results❞ in [1], are carefully read by the users.
+
+%%=========================================================================
+% DIGITAL BREAST PHANTOM AND K-WAVE
+%==========================================================================
+% The Breast is simulated using a digital breast phantom developed by
+% Mark Anastasio group [3]. The phantom data must be downloaed via the link:...
+% https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/ [3].
+% The pressure fied  used as the benchmark is simulated using the k-Wave
+% toolbox. www.k-Wave.org (v. 1.3. or 1.4.) [4].
+% It was shown in [5] that corrections must be applied on the step for 
+% inclusion of source in the k-Wave to simulate the UST signals matching
+% the Green's formula, considering that the solution to the wave equation
+% is unique. To avoid changing the open-source k-Wave toolbox, the pressure time
+% series measured by the k-Wave are kept unchanged, but the inverse of the
+% required corrections was applied on the exciation pulse used as input to the
+% Green's formulae. Both are equivalent, and they will affect only our assumption
+% about the excitation pulse used in our simulation study.
+
+%%=========================================================================
+% REFERENCES
+%==========================================================================
+% If you find this example script useful for your research, please consider citing these papers:...
+% 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution
+% quantitative ultrasound tomography❞,2022, https://arxiv.org/abs/2211.00316.
+% 2 - A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering
+% for biomedical ultrasound tomography❞, Inverse Problems vol. 37, no.11, 115003, 2021.
+
+% These data-base/toolbox were used in this project.
+% 3- Y. Lou, W. Zhou, T. P. Matthews, C. M. Appleton and M. A. Anastasio, ❝Generation of anatomically realistic
+% numerical phantoms for photoacoustic and ultrasonic breast imaging❞, J. Biomed. Opt., vol. 22, no. 4, pp. 041015,
+% 2017.
+% 4 - B. E. Treeby and B. T. Cox, ❝k-Wave: MATLAB toolbox for the simulation and reconstruction of photoacoustic
+% wave fields❞, J. Biomed. Opt. vol. 15, no. 2, 021314, 2010.
+%
+%
+% You may also think about citing this preprint:
+% 5- A Javaherian, ❝A note on an open-source toolbox for simulation of acoustic waves:
+% inclusion of time-varying source❝, https://arxiv.org/abs/2212.04466.
+
+% author: Ashkan Javaherian
+% date:            - 11.04.2020
+% last update:     - 05.10.2022
+%
+% This script is part of the r-Wave Tool-box
+% Copyright (c) 2022 Ashkan Javaherian
+
+
+% the three essential c's
+clear all
+close all
+clc
+
+% run the startup script for defining the paths
+startup_simulation_ust;
+
+%% ========================================================================
+% OPTIONAL PARAMETERS
+%==========================================================================
+% get the Boolean controlling whether the k-Wave simulation is performed and
+% the simulated synthetic UST data is stored in a directory (true), or alternatively,
+% the already simulated pressure time series are loaded from the same directory (false).
+% For setting 'do_data_sim = false', the data muat have been stored in the
+% associated path.
+
+% The directories for saving the UST simulated by k-Wave are:
+% ['.../simulation/data/data_ust_kWave_transmission/2D/name_data/file_name',
+% '.../simulation/data/data_ust_kWave_transmission/3D/name_data/file_name'
+
+% The folder ''data_ust_kWave_transmission'', which includes the k-Wave simulated data
+% used in the examples in this project, can be downloaded via:
+% https://doi.org/10.5281/zenodo.7717290.
+%
+%
+% name_data is set in the function 'makeDataSettings.m' using the line
+% commands:
+% data_paths.name_data = ['Pulse' para.Excit  '_dx' num2str(1e4 * dx) '_cfl' num2str(10 * cfl) '_Nr'...
+% num2str(num_receiver) '_Ne' num2str(num_emitter)  '_Interp' para.InterpType...
+% '_Transgeom' para.TransGeom '_Absorption' num2str(para.Absorption) '_Code'   para.CodeVersion  '/'];
+
+
+% For example,
+% 1- a file_name 'data_4nonsmooth.m' means data which is simulated using
+% k-Wave on a grid of size 0.4 mm using all 64 emitters.
+% For this simulation, the sound speed and absorption coefficient maps
+% are not smoothed, because it will be used for image reconstruction.
+% 2- a file_name 'data_4smooth_17_20.m' means data which is
+% simulated using k-Wave on a grid of size 0.4 mm using emitter 20. For this
+% k-Wave simulation, the fields are smoothed by a window of size 17 grid points,
+% equivalent to 7 grid points on a grid of size 1 mm, and is used for validation of
+% the Green's approach in water analytically and in the heterogeneous medium
+% (breast in water).
+% Please see Section 'Numerical results' in the preprint:
+% 'A. Javaherian, Hessian-inversion-free ray-born inversion....'
+do_data_sim = true;
+
+
+% get the Boolean controlling whether the plots are saved or not
+% This Boolean determines whether the plots associated with validation
+% of the Green's approach in homogeneous or heterogeneous medium is stored
+% or not.
+save_plots = false;
+
+%%=========================================================================
+% GET THE PURPOSE OF RUNNING THE SCRIPT
+%==========================================================================
+% get the number of dimensions (2 or 3)
+dim = 2;
+
+% get the numer of workers for parallel programming
+% the user may want to change the number of workers.
+num_worker_pool = 0;
+
+
+% In general, we have two options
+% 1) Set:
+% scenario = 'standard'; purpose = 'image_reconstruction';
+% The UST data is simulated for all emitter-receiver pairs, and will be used
+% for image reconstruction. For simulation of data, the sound speed and
+% absorption coefficient maps are not smoothed.
+% 2) Set...
+% scenario = 'single_emitter'; purpose = 'raytracing_validation';
+% The UST data is simulated for a single emitter, and is used for testing
+% and validation of the ray tracing algorithm for calculating amplitude and
+% phase.
+% For this example script, the purpose is validation of ray tracing using
+% a single emitter
+
+% get the scenario, which is 'single_emitter'
+scenario = 'single_emitter';
+
+% get the purpose, which is 'raytracing_validation'.
+purpose = 'raytracing_validation';
+
+
+
+%%=========================================================================
+% DEFAULTS USED IN THE PAPER, BUT IT CAN BE CHANGED BY THE USER
+%%=========================================================================
+% get the emitter index for validation of the ray approximation to the
+% Green's function for homogeneous and heterogeneus media (phase and
+% amplitude plots for the pressure field on all the receivers.)
+% For emitters 1 and 20, the stored data is available in zenodo.
+emitter_index = 1; % 20
+
+% get the receiver index for validation of the ray approximation to the
+% Green's function for homogeneous and heterogeneus media (phase and amplitude plot
+% for a single-emitter-receiver pair and on all the discretised frequencies.)
+receiver_index = 100;
+   
+%%=========================================================================
+% THE FIXED PARAMETERS, THE PARAMETERS WHICH MUST NOT BE CAHNGED BY THE
+% USER
+%==========================================================================
+% get the grid spacing [m] for ray tracing
+grid_spacing_raytracing = 1e-3;
+
+% the name of the used excitation pulse in our study
+excit_pulse_name = 'Pammoth_1';
+
+% get the cfl number to be used for time spacing for the k-Wave simulations
+cfl_number = 0.1;
+
+% the temporal downsampling rate used for (partially) avoiding an inverse crime
+% in the time spacing. (Note that because this study uses two inherently different
+% approaches for data simulation and image reconstruction, the inverse
+% crime is not the case, but the author still considered these points (avoiding
+% inverse crime for time sampling, grid psacing, realsitic pressure source,...) for
+% making the study reliable as much as possible.)
+time_downsampling_rate = 2;
+
+% get the Boolean controlling whether the pressure source is deconvolved
+% from the pressure time series or not. The presure time series are not
+% deconvolved from the source, when the purpose is validation of ray
+% tracing, because the plan is compare the amplitudes simlated using the
+% k-Wave and approximated using teh Green's formula on the receivers,.
+deconvolve_source = false;
+
+% Boolean controlling whether the time-of-flights are computed from simulated
+% (or loaded) data, or not. For this example, because the purpose is
+% validation of ray tracing, not image reconstruction, this parameter must
+% be set false.
+do_calculate_tofs = false;
+
+% get the ray-to-grid and grid-to-ray interpolation approach for
+% time-of-flight-based image reconstruction approach
+gridtoray_interp_tof = 'Bspline';
+
+% get the number of receivers
+num_receiver = 2^8;
+
+% get the haLf size [m] of the computational grid
+half_grid_size = 10e-2;
+
+% get the grid spacing [m] for the k-Wave simulations
+grid_spacing_data = 4e-4;   %   (Default : 4e-4)
+
+% get the Boolean controlling whether the acoustic absorption and dispersion are
+% included or not
+do_absorption = true;
+
+% get the number of linearised problems (outer iterations) for
+% reconstructing an image from the time of flights. (Note that the number
+% of iterations for reconstructing the optimal image is 12-15, but for
+% providing an initial guess for the Green's approach, only few iterations
+% of the 'sart' algorithm (simulateneous algebraic reconstruction algorithm)
+% is sufficient for providing an image accurate enough and with minimal artefact.
+num_iterout_tof = 5;
+
+% the approach for interpolation of the pressure field from the
+% emitters to grid points and from grid points to receivers.
+% Using 'offgrid', the offgrid toolbox is used. (c.f. reference [5]
+% in the description of the script.)
+transducer_interp_approach = 'offgrid';
+
+% get the downsampling rate for the emitters
+emitter_downsampling_rate = 1;
+
+% get the downsampling rate for the receivers
+receiver_downsampling_rate = 1;
+
+
+% get the ratio of te number of receivers to the number of emitters
+ratio_receiver_to_emitter = 4;
+
+% get the approach for linearisation. This cab be 'absolute' or
+% 'difference'. The latter is deprecated.
+linearisation_approach = 'absolute';
+
+% get the appproach for solving each linearised subproblem. Using a
+% lineraisation using the 'absloute' approach, the arisng linearised
+% subproblems can be solved using the 'sart' or 'conjuge_gradient'
+% algorithm.
+linear_subproblem_method = 'sart';
+
+% the approach fpr computing the geomterical attenuation, auxiliary: using
+% auxiliary rays, or 'raylinked' (linked rays without using auxiiary rays)
+attenuation_geom_method = 'auxiliary';
+
+% the approach for tracing auxiliary rays, which will be used for computing
+% the geomterical attenuation, 'paraxial' or 'angle_perturbation'.
+auxiliary_method = 'paraxial';
+
+
+if save_plots
+    
+    % get the directory for saving the plots
+    plot_directory = 'simulation/results/plot_greens/';
+    
+    % make the directory for saving the plots, if it does not exist
+    makeDirectory(plot_directory);
+else
+    
+    % allocate an empty variable for the directory
+    plot_directory = [];
+    
+end
+
+
+%%=================================================================
+% SIMULATE THE ONLY-WATER AND BREAST-IN-WATER PRESSURE DATA ON RECEIVERS
+% USING K-WAVE
+%==================================================================
+% get the optional inputs for defining the simulation settings, or simulating
+% (or loading) the pressure data sets. The simulations are performed using
+% the k-Wave toolbox.
+data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spacing_data,...
+    'grid_spacing_reconstruction', grid_spacing_raytracing, 'cfl', cfl_number,...
+    'transducer_interp_approach', transducer_interp_approach,...
+    'single_emitter_receiver', [nan, emitter_index], 'emitter_downsampling_rate',...
+    emitter_downsampling_rate, 'receiver_downsampling_rate',...
+    receiver_downsampling_rate, 'time_downsampling_rate', time_downsampling_rate,...
+    'do_calculate_tofs', do_calculate_tofs};
+
+
+% if the puropose is validation of ray tracing, the clean data (without noise) is
+% used.
+[data, data_ref, ~, ~, emitter, receiver, kgrid,...
+    medium, simulation_prop, data_simulation_time] =...
+    simulateSettingData(do_data_sim, dim, scenario,...
+    purpose, excit_pulse_name, half_grid_size, num_receiver,...
+    ratio_receiver_to_emitter, do_absorption, oa_breast_path, machine_name,...
+    res_path, local_res_path, data_args{:});
+
+
+%%==================================================================
+% COMPARE THE GREEN'S FUNCTION AND K-WAVE FOR HOMOGENEOUS
+% (ONLY-WATER) MEDIUM
+%===================================================================
+% get the optional inputs for homogeneous Green's function
+greens_hom_args = {'emitter_index', 1, 'receiver_index', receiver_index,...
+    'deconvolve_source', deconvolve_source, 'save_plots', save_plots};
+
+% get the relative discrepancies for the pressure field approximated
+% by the Green's function and k-Wave, on the receivers (or single receiver)
+% after being produced by a single emitter and propgating through only water
+[relative_discrepancy_signal_water_emitter, relative_discrepancy_signal_water_receiver] = ...
+    validateGreensHomogeneous(data_ref, kgrid.t_array, emitter, receiver,...
+    medium.sound_speed_ref, simulation_prop.f_max, plot_directory, greens_hom_args{:});
+
+%%=================================================================
+% COMPARE THE GREEN'S FUNCTION AND K-WAVE FOR HETEROGENEOUS
+% (BREAST-IN-WATER) MEDIUM
+%===================================================================
+% get the optional inputs for ray approaximtion to heterogeneous Green's function
+greens_het_args = {'num_worker_pool', num_worker_pool, 'emitter_index',...
+    1, 'receiver_index', receiver_index,...
+    'deconvolve_source', false, 'save_plots', save_plots, ...
+    'auxiliary_method', auxiliary_method,...
+    'attenuation_geom_method', attenuation_geom_method};
+
+
+% compare the pressure field approximated by the Green's function and k-Wave
+% on the receivers after being produced by the chosen single emitter and 
+% propagation through the breast in water
+% In addition, get the parameters on the sampled points along the forward and
+% adjoint (backprojection) rays.
+[ray_position, ray_time, ray_absorption, ray_position_left, ray_position_right,...
+    adjoint_ray_position_left, adjoint_ray_position_right, ray_spacing,...
+    rayspacing_receiver, relative_discrepancy_absorbing, relative_discrepancy_nonabsorbing] =...
+    validateGreensHeterogeneous(data, data_ref, kgrid.t_array, emitter, receiver,...
+    kgrid, medium, simulation_prop, [], plot_directory, greens_het_args{:});
+
+%%=================================================================
+% DISPLAY THE RAYS AFTER VALIDATION OF RAY TRACING
+%==================================================================
+% get the optional inputs
+display_args = {'save_plots', false, 'emitter_index', emitter_index,...
+    'receiver_index', receiver_index};
+
+% display the forward ray initialised from a single emitter and
+% adjoint rays initilialised from a single receiver
+displayRays(emitter.positions, receiver.positions, ray_position, ray_time,...
+    ray_absorption, ray_position_left, ray_position_right,...
+    adjoint_ray_position_left, adjoint_ray_position_right, ray_spacing,...
+    rayspacing_receiver, plot_directory, display_args{:});
+
+
+
+      

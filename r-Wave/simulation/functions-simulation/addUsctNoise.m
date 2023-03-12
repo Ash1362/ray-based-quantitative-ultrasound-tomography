@@ -22,6 +22,17 @@ function [data_noisy] = addUsctNoise(data, varargin)
 %       last update       - 30.12.2019
 %
 % See also addnoise.m
+% ABOUT:
+%       author           - Ashkan Javaherian
+%       date             - 15.12.2019
+%       last update      - 15.12.2019
+%       
+%
+% This function is part of the r-Wave Toolbox
+% Copyright (C) 2022 Ashkan Javaherian
+
+
+
 
 % set kWave default parameter
 para      = [];

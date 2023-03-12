@@ -32,8 +32,8 @@ function [start_edge_pos,end_edge_pos, slope] = lineEdgesCircularDetection(tr_po
 %       date            - 15.12.2019
 %       last update     - 15.12.2019
 %
-% This function is part of the r-Wave Toolbox (http://www.r-wave.org)
-% Copyright (C) 2020 Ashkan Javaherian and Ben Cox
+% This function is part of the r-Wave Toolbox 
+% Copyright (C) 2020 Ashkan Javaherian 
 
 if size(tr_pos, 1)> 2
     error('A Line tranducer cannot be used for 3D geometry.')

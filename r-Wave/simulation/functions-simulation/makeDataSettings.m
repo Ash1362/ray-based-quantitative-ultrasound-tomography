@@ -122,8 +122,8 @@ function [kgrid, medium, emitter, receiver, simulation_prop, data_paths] = ...
 %       date            - 29.12.2019
 %       last update     - 29.12.2019
 %
-% This script is part of the r-Wave Tool-box (http://www.r-wave.org).
-% Copyright (c) 2020 Ashkan Javaherian and Ben Cox
+% This script is part of the r-Wave Tool-box 
+% Copyright (c) 2020 Ashkan Javaherian 
 
 para.DataSim        = false;
 para.Scenario       = 'standard';
@@ -161,18 +161,15 @@ detec_radius = 0.95 * radius;
 data_paths = [];
 data_paths.main_directory = res_path;
 
-data_paths.directory = ['study_' para.Mode '/' num2str(dim) 'D'  '/'];
+data_paths.directory = ['data_ust_kWave_' para.Mode '/' num2str(dim) 'D'  '/'];
     
-
-%if strcmp(data_paths.main_directory(1:10), 'simulation' )
-%data_paths.name_data = 'data1/';
-%else
-data_paths.name_data = ['Pulse' para.Excit  '_dx' num2str(dx,'%1.1e') '_cfl' num2str(10 * cfl) '_Nr'...
+% get the name of file for storing the UST data simulated by the k-Wave
+data_paths.name_data = ['Pulse' para.Excit  '_dx' num2str(1e4 * dx) '_cfl' num2str(10 * cfl) '_Nr'...
 num2str(num_receiver) '_Ne' num2str(num_emitter)  '_Interp' para.InterpType...
 '_Transgeom' para.TransGeom '_Absorption' num2str(para.Absorption) '_Code'   para.CodeVersion  '/'];
-%end
 
-% Make the directory for the data
+
+% make the directory for storing the data, if the directory does not exist
 makeDirectory([data_paths.main_directory, data_paths.directory, data_paths.name_data]);
 
 % display the directory for the data
@@ -348,7 +345,7 @@ switch phantom
         if para.CreatePhantom
             
             % get the phantom
-            phan = getBreastPhantom('Neg_47_Left', oa_breast_path, phantom_grid, false);
+            phan = getBreastPhantom('Neg_47_Left', oa_breast_path, phantom_grid);
             
             % get the modified acoustic properties
             medium_acoustic = acousticPropertiesModified(phantom_grid, phan, para.Absorption, false);

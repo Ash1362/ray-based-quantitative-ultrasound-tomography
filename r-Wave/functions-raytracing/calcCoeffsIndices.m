@@ -43,7 +43,7 @@ function [indices, coeff] = calcCoeffsIndices(pos_point, xvec, yvec, zvec, pos_g
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 [indices, index_x, index_y, index_z] = calcInterpIndices(pos_point, pos_grid_first, dx, grid_size, dim);

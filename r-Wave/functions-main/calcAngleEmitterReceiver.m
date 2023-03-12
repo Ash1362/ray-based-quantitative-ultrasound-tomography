@@ -40,7 +40,7 @@ function [angles] = calcAngleEmitterReceiver(emitter_positions,...
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 num_emitter = size(emitter_positions, 2);

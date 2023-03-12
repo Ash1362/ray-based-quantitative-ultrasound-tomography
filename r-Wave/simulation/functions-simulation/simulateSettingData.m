@@ -157,17 +157,18 @@ function [data, data_ref, data_noisy, data_ref_noisy, emitter, receiver,...
 %                            the k-Wave simulation. This strut includes the
 %                            fields:
 %      'sound_speed'       - the sound spped distribution [m/s]
-%      'alpha_coeff'       - the absorption coefficient [dBMHz^{-y}
-%                            cm^{-1}]
+%      'alpha_coeff'       - the absorption coefficient [dBMHz^{-y} cm^{-1}]
 %      'alpha_power'       - the exponent power of the attenuation used for
 %                            the k-Wave simulation 
 %      simulation_prop      - a struct array containing the properties of the
-%                           simulation. This struct includs the fields: 
+%                             simulation. This struct includs the fields: 
 %      'PML'                - a  1 x dim vector of the number of PML layers
-%                           along each dimension
+%                             along each dimension
 %      'f_max'              - the maximum frequency [Hz] supported by the
-%                           computational grid    
+%                             computational grid    
 %      'detec_radius'       - the radius of the detection ring (surface)
+%      'data_path'          - the data path for storing the simulated UST
+%                             data and the computed TOFs
 %      data_simulation_time - the cpu time [s] for simulating ultrasound data
 %                             for the object in water
 %       
@@ -178,8 +179,8 @@ function [data, data_ref, data_noisy, data_ref_noisy, emitter, receiver,...
 %       date            - 18.03.2020
 %       last update     - 10.08.2022
 %
-% This script is part of the r-Wave Tool-box (http://www.r-wave.org).
-% Copyright (c) 2020 Ashkan Javaherian and Ben Cox
+% This script is part of the r-Wave Tool-box 
+% Copyright (c) 2022 Ashkan Javaherian
 
 
 
@@ -575,10 +576,19 @@ if strcmp(scenario, 'single_emitter')
     phantom_type = [phantom_type, '_', num2str(para.single_emitter_receiver(2))];
 end
 
+
+
+
 % get the path for saving or loading the simulated pressure time series
 data_path = [data_paths.main_directory, data_paths.directory, data_paths.name_data,...
         'data', num2str(1e4 * grid_spacing_data), phantom_type];
+if strcmp(simulation_purpose, 'image_reconstruction')
+      
+% add 'data_path' to the simulation_prop struct, if the purpose of
+% simulating data is image reconstruction
+simulation_prop.data_path = data_path;
 
+end
 
 if do_data_sim
     
@@ -598,9 +608,7 @@ if do_data_sim
     [interp_params.receiver.mask, interp_params.receiver.mask_entire_volume,...
         interp_params.receiver.matrix, interp_params.receiver.elapsed_time] =...
         calcInterpParameters(kgrid, receiver.positions, simulation_prop.z_offset, interp_args{:});
-    
-    
-    
+      
     %% ====================================================================
     %  SIMULATE (OR LOAD) THE DATA
     %======================================================================
@@ -720,8 +728,14 @@ derivative_emitter_pulse = true;
 
 if derivative_emitter_pulse
     
-    % the coefficient indicating to the time integration of the excitation pulse
-    % included in the data simulation
+    % Using k-Wave version 1.3 or 1.4, and before...., some corrections must be
+    % enforced on the k-Wave for getting signals matching the Green's formula 
+    % for a point time-varying source
+    % (Please read the appendix in the paper:
+    % A. Javaherian, 'Hessian-inversion-free ray-born....')
+    % Note that here, instead of applying the correction to the emission
+    % pulse used for the k-wave simulation, the inverse of that correction 
+    % is enforced on the emission pulse used in the Green's apparoches.
     data_attenuation_factor =  1/2 * kgrid.dt * medium.sound_speed_ref/kgrid.dx;
     
     % calcuate numerically the derivative of the excitation pulse,
@@ -731,12 +745,12 @@ if derivative_emitter_pulse
         excitation_pulse =  kgrid.dx * excitation_pulse;
     end
 else
-   
+    
     % alternatively the user can integrate the exciation pulse in time before
     % giving it as an input to the k-Wave. For this case,
     % 'derivative_emitter_pulse' must be set false.
     % excitation_pulse = emitter.pulse;
-    error('Not implemented yet!')  
+    error('Not applied!')
     
 end
 

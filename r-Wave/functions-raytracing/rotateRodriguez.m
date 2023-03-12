@@ -20,7 +20,7 @@ function [u_rotated] = rotateRodriguez(u, theta, u_ref)
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 
 if any(u ~= 0)

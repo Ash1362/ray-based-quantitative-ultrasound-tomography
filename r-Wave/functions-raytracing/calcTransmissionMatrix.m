@@ -69,15 +69,24 @@ function [system_matrix, cartesian_position_endpoint, num_rays, optimal_polar_in
 %                                 'open_angle') 
 %        'raytogrid_spacing'    - the ray-to-grid spacing, (default = 1
 %                                 (2D), 1/2 (3D))
-%        'interp_method         - the method for ray to grid interpolation,
-%                                 (default = 'Bilinear')                           
-%        'raylinking_method'    - the method for ray linking, 
-%                                 (default = 'Regula-Falsi' (2D),
-%                                 'Quasi-Newton' (3D))
-%        'raylinking_initialisation' - the method for initialisation of the
-%                                      ray linking (Default =
-%                                      'Global' ('Regula-Falsi'), 'Local'
-%                                      (other approaches)                               
+%       'raylink_method'     -  method for ray linking. For 2D case, this can be
+%                              'Regula-Falsi' or 'Secant', and for 3D case, this 
+%                              can be 'Quasi-Newton'. 'Regula-Falsi' converges
+%                              well with initial guess far from true, but it
+%                              converges solwly. 'Secant' and 'Quasi-Newton'
+%                              are fast, but converge badly for initial guesses
+%                              far from true, and are therefore used
+%                              through iteratively reconstruction of the
+%                              sound speed, where the linked ray for each
+%                              iteration is used as initial guess for ray
+%                              linking for the next iteration. (Default:
+%                              'Regula-Falsi (2D), and 'Quasi-Newton' (3D))
+%       'raytracing_method'  - the method for ray tracing, which can be
+%                              'Mixed-step', 'Dual-update',
+%                              'Characteristics', or 'Runge-kutta-2nd'.
+%                              (Default : 'Mixed-step')
+%       'interp_method'      - method for interpolation, which can be
+%                              'Bilinear' or 'Bspline'. (Default: 'Bilinear')                           
 %        'max_iter'             - the maxium permissble number of iterations for ray
 %                                 linking (default = 5000 (2D), 500 (3D)) 
 %        'stopping_tolerance'   - the stopping tolerance for ray linking
@@ -115,7 +124,7 @@ function [system_matrix, cartesian_position_endpoint, num_rays, optimal_polar_in
 %       last update     - 10.10.2022
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 para = [];
 para.nworker_pool = 16;
@@ -124,8 +133,8 @@ para.emittersegments_to_nworkers = 4;
 para.smoothing_window_size = 7;
 para.binaries_emitter_receiver = 'open_angle';
 para.refractive_background = 1;
-para.raylinking_initialisation = 'Local';
 para.max_iter = 500;
+para.raytracing_method = 'Mixed-step';
 
 switch para.binaries_emitter_receiver
     case 'distances'
@@ -230,12 +239,6 @@ switch dim
             gradient(refractive, grid_spacing, grid_spacing, grid_spacing);
 end
 
-% extend the binary mask obtained from applying a binary image segmenetation
-% to the last UST upadate of iterative image reconstruction
-% for ind_layer = 1:3
-%    mask = mask + addBoundary(mask);
-%    mask(mask>0) = true;
-% end
 
 % set zero the gradient of refraction outside the support of binary mask
 % so the ray will be straight line ouside the binary mask
@@ -250,9 +253,12 @@ else
 end
 
 
+% dsip the ray-to-grid spacing
+disp(['The ray-to-grid spacing is:' num2str(para.raytogrid_spacing)]);
 % choose a step size for solving the rays
 % the grid spacing is set the same for all Cartesian coordinates.
 ray_spacing = para.raytogrid_spacing * grid_spacing;
+
 
 
 % the setting for position of the transducers: fixed or rotational
@@ -266,13 +272,27 @@ else
 end
 
 
-% allocate a variable for parameters reuired for ray tracing
+% allocate a struct for interpolation parameters
 ray_fields_params = [];
+
 
 switch para.interp_method
     
+    
+    case 'Bilinear'
+        
+        % get the directional gradients of the refractive index
+        ray_fields_params.refractive_gradient_x = refractive_gradient_x;
+        ray_fields_params.refractive_gradient_y = refractive_gradient_y;
+        ray_fields_params.refractive_gradient_z = refractive_gradient_z;
+        
     case 'Bspline'
+        
+        % get the indices of the grid points included in the
+        % Bspline interpolation with respect to the ray's point
+        % (off-grid point) on which the interpolation
         indices_vec = [-1; 0; 1; 2];
+
         switch dim
             case 2
                 ray_fields_params.raytogrid_indices_x = vectorise(repmat(indices_vec, [1, 4]));
@@ -285,56 +305,27 @@ switch para.interp_method
                     [4, 4, 1]));
         end
         
-        
-end
 
-
-switch para.interp_method
-    
-    
-    case 'Bilinear'
-        
-        ray_fields_params.refractive_gradient_x = refractive_gradient_x;
-        ray_fields_params.refractive_gradient_y = refractive_gradient_y;
-        ray_fields_params.refractive_gradient_z = refractive_gradient_z;
-        
-    case 'Bspline'
-        
-        % cubic Bspline based on Denis et al, Ultrasonic Transmission
-        % Tomography in Refracting Media: Reduction of Refraction Artifacts
-        % by Curved-Ray Techniques, IEEE TRANS MED IMAG, 14 (1), 1995.
-        
+        % get the coefficient of the polynomials for interpolation of the refractive
+        % index
         ray_fields_params.raytogrid_coeff_matrix = 1/6 * [-1, 3,-3, 1;...
             3,-6, 0, 4;...
             -3, 3, 3, 1;...
             1, 0, 0, 0];
         
+        % get the coefficient of the polynomials for interpolation of the first-oder
+        % gradient of the refractive index
         ray_fields_params.raytogrid_coeff_derivative_matrix = 1/(6*grid_spacing) * [-3, 6, -3;...
             9,-12, 0;...
             -9,  6, 3;...
             3,  0, 0];
         
-   % case 'Bspline-Catmull-Rom'
-    %     error(['The interpolation using Bspline-Catmull-Rom is only for testing purposes'...
-    %         'for the code developer.'])
-        % Cardinal cubic B-spline with tension parameter equal to 1
-        % (Catmull-Rom Bspline)
-     %   ray_fields_params.raytogrid_coeff_matrix = 1/2 * [-1, 2,-1, 0;...
-     %       3,-5, 0, 2;...
-     %      -3, 4, 1, 0;...
-     %       1, -1, 0, 0];
-        
-     %   ray_fields_params.raytogrid_coeff_derivative_matrix = 1/(2*grid_spacing) * [-3, 4, -1;...
-     %       9,-10, 0;...
-     %       -9,  8, 1;...
-     %       3, -2, 0];
-        
 end
 
-
-   
+ 
  % define a handle function for ray linking and construction of the system
- % matrix for each single emitter 
+ % matrix. The system matrix is a sparse matrix of the ray-to-grid
+ % interpolation coefficients. The function is run for each emitter separately.
 calc_interp_coefficients = @(cartesian_position_emitter, polar_direction_allreceivers,...
     polar_initial_direction_allreceivers, position_receivers) rayLink(ray_fields_params,...
     refractive, cartesian_position_emitter, position_receivers, polar_direction_allreceivers,...
@@ -348,11 +339,12 @@ num_emitter = size(cartesian_position_allemitters, 2);
 % specify a number of segment as multiply of number of workers for parallel
 % programming
 num_emitter_segments = para.emittersegments_to_nworkers * para.nworker_pool;
+
 % the number of emitters for each segment, except for the last segment
 emitter_per_segment = floor(num_emitter/num_emitter_segments);
+
 % the number of remaining emitters
 num_emitter_rem = rem(num_emitter, num_emitter_segments);
-
 
 % allocate a cell array for the system matrix
 system_matrix = cell(num_emitter_segments, 1);
@@ -370,10 +362,7 @@ end
 % allocate a cell array for the maximum number of rays for ray linking
 num_rays = cell(num_emitter_segments, 1);
  
-
-
  
-   
 parfor (ind_emitter_segment = 1 : num_emitter_segments, para.nworker_pool)
 % for ind_emitter_segment = 1 : num_emitter_segments
        
@@ -386,8 +375,7 @@ indices_emitters_segment = ( num_emitter_rem * (emitter_per_segment + 1))  + ((i
     (ind_emitter_segment - num_emitter_rem) * emitter_per_segment);
 end
     
-    
-% choose the cartesian posistion of emitters for the segment
+% choose the cartesian position of emitters for the segment
 cartesian_position_emitter_segment = cartesian_position_allemitters(:,...
     indices_emitters_segment);
 
@@ -430,15 +418,14 @@ for ind_emitter = 1:num_emitter_per_segment
     if strcmp(transducer_positions_setting, 'rotational')
        
      % if the detection geometry is rotational, the matrix 'cartesian_position_allreceivers'
-     % is a cell array containing the position of receivers for each rotation angle
+     % is a cell array containing the position of receivers for each rotatation angle
      
      % get the index of rotation for getting the position of receivers
      ind_rot = rotation_indices_segment(ind_emitter);
-    
-     
-        % if the setting for position of the transducers is 'rotational', the matrix of position
-        % of receivers is separate for each 'ind_rot' (index of rotation)
-    cartesian_position_allreceivers_singleemitter = cartesian_position_allreceivers{ind_rot};
+
+     % if the setting for position of the transducers is 'rotational', the matrix of position
+     % of receivers is separate for each 'ind_rot' (index of rotation)
+     cartesian_position_allreceivers_singleemitter = cartesian_position_allreceivers{ind_rot};
      
     
     else
@@ -517,7 +504,6 @@ for ind_emitter = 1:num_emitter_per_segment
            
     end
    
-   
      % display the number of receivers for which the end point of the ray
      % does not match the position of the receivers using the maximum
      % permissible number of iteration.
@@ -526,7 +512,6 @@ for ind_emitter = 1:num_emitter_per_segment
      % respectively. 
      disp(['The number of bad linkings:'  num2str(nnz(num_rays_segment{ind_emitter} > para.max_iter-1))])
 end
-
 
 %% ========================================================================
 % GET THE OUTPUTS
@@ -545,18 +530,13 @@ end
 
 % get the number of the linked rays for the current segment
 num_rays{ind_emitter_segment} = num_rays_segment;
- 
 
 
 end
    
-   
-
    % convert the system matrix as a cell with each element for each segment
    % to a single sparse matrix
    system_matrix = cat(1, system_matrix{:});
-   
-
 
    if strcmp(para.raylinking_method, 'Regula-Falsi')
        optimal_polar_initial_direction = [];
@@ -570,8 +550,7 @@ end
    % convert the Cartesian position of the end points of the linked rays as a cell with each element for each segment
    % to a cell with each element for each emitter  
    cartesian_position_endpoint = cat(1, cartesian_position_endpoint{:});
-   
-   
+    
    % convert the number of rays as a cell with each element for each segment
    % to a cell with each element for each emitter 
    num_rays = cat(1, num_rays{:});
@@ -587,12 +566,7 @@ end
        disp('The system matrix was reconstructed using straight rays')
    end
    
-   
-   
-   
    % the whole run time for construction of the system matrix 
    matrix_construction_time = toc(start_time);
    
-   
-
 end

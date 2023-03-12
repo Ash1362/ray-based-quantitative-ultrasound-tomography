@@ -41,7 +41,7 @@ function [interp_coeff_vec, polar_initial_direction, cartesian_pos_endpoint,...
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 % trace the first ray, calculate the end point and its residual, and
 % associated interpolation coefficients

@@ -39,7 +39,7 @@ function [indices, index_x, index_y, index_z] = calcInterpIndices(pos_point, pos
 %       last update     - 30.12.2019
 %
 % This function  is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian 
+% Copyright (c) 2022 Ashkan Javaherian 
 
 index = 1 + floor((pos_point - pos_grid_first)/dx);
 index_x = index(1);

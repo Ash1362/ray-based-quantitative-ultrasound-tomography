@@ -91,7 +91,7 @@ function [amplitude_het, amplitude_hom] = calcAmplitude(data_het,...
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian
+% Copyright (c) 2022 Ashkan Javaherian
 
 para.nWorkerPool = 16;
 para.SoundSpeedRanges = [1400, 1600];

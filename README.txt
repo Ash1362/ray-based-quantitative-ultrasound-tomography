@@ -76,12 +76,9 @@ But because including all the grid points for an interpolation to an off-grid po
 the interpolation to the grid points close to the off-grid point by setting the deafult 'BLITolerance' 0.1 or 0.05. Based on my experince,
 these values for 'BLITolerance' are large and will deteriorate the first arrival of the signals.
 For preserving the information in the simulated  pressure field including the first arrival of the signals, 'BLITolerance' was here set 0.001.
-Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore increases the required memory for the k-Wave simulation,
-but it will make the k-Wave simulations accurate.
+Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore increases the required memory for the k-Wave simulation, but it will make the k-Wave simulations accurate.
 
-It must be reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the
-signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using
-time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
+It must be reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
 
 
 2) A digital breast phantom developed by Mark Anastasio's group is used in this project. This phantom must be downloaded via the link:'...

@@ -12,19 +12,19 @@ ____________________________________________________________________________
 Version 1.0, Released 10th March 2023
 Written by Ashkan Javaherian
 
-Please report bugs and suggestions to email: a.javaherian@ucl.ac.uk, ashkan.javaherian@yahoo.com
+Please report bugs and suggestions to email: a.javaherian@ucl.ac.uk; ashkan.javaherian@yahoo.com
 You will receive a response in 7 days.
 The toolbox may be downloaded from https://github.com/Ash1362/ray-based-quantitative-ultrasound-tomography/ 
 
 ____________________________________________________________________________
 
-Acknowledgment
+ACKNOWLEDGEMENT
 ____________________________________________________________________________
 The project was (only financially) supported by :
 1) European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411)
 2) Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1)
 
-Regarding technical points of view, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to these projects was completely stopped by the associated department at University College London, and the code developer has been working in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
+Regarding technical support, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to these projects was completely stopped by the associated department at University College London, and the code developer has been working in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022, https://arxiv.org/abs/2211.00316/ .
@@ -48,7 +48,7 @@ ____________________________________________________________________________
 
 ____________________________________________________________________________
 
-Getting started:
+GETTING STARTED
 ____________________________________________________________________________
 
 1) Get access to the UST data
@@ -111,7 +111,7 @@ but only 'Rung-kutta-2nd' can be used for ray tracing for the Green's inversion 
 Please read the description of examples for better understanding the examples!
 ____________________________________________________________________________
 
-Simulation of ultrasound data using K-WAVE
+SIMULATION OF ULTRASOUND DATA USING THE K-WAVE
 ____________________________________________________________________________
 The pressure field used as the benchmark is simulated using the k-Wave toolbox.  www.k-Wave.org (v. 1.3.) [5].
 The k-Wave toolbox and the functions for an off-grid interpolation is available in this project. 

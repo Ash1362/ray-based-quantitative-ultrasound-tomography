@@ -24,7 +24,7 @@ The project was (only financially) supported by :
 1) European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411)
 2) Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1)
 
-Regarding technical points of view, since 2021, when the code developer raised some issues, the contribution of the code developer to these projects was completely stopped by the associated department at University College London, and the code developer has been working in complete isolation (only few contacts via email) until the end of his appointment.  
+Regarding technical points of view, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to these projects was completely stopped by the associated department at University College London, and the code developer has been working in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022, https://arxiv.org/abs/2211.00316/ .
@@ -51,7 +51,7 @@ ____________________________________________________________________________
 Getting started:
 ____________________________________________________________________________
 
-1- UST data
+1) Get access to the UST data
 Download the folder ''data_ust_kWave_transmission'' via the link:
 https://doi.org/10.5281/zenodo.7717290/ [7] 
 
@@ -77,15 +77,15 @@ Note that smaller 'BLITolerance' means inclusion of larger number of grid points
 It is reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
 
 
-2- A digital breast phantom developed by Mark Anastasio's group is used in this project. This phantom must be downloaded via the link:'...
+2) A digital breast phantom developed by Mark Anastasio's group is used in this project. This phantom must be downloaded via the link:'...
 https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/ [4].
 The folder 'Neg_47_Left' is used for simulation of UST data for all studies in this toolbox.
 The folder 'Neg_47_Left' must be added to the directory:
 '.../simulation/data/phantom/OA-BREAST/Neg_47_Left/...'
 
-3- run ''startup_simulation_ust.m''
+3) Run ''startup_simulation_ust.m''
 
-3- run examples in the path ''...r-Wave/simulation/examples-simulation/....''
+4) Run examples in the path ''...r-Wave/simulation/examples-simulation/....''
 ____________________________________________________________________________
 
 RUNNING EXAMPLES
@@ -111,14 +111,14 @@ but only 'Rung-kutta-2nd' can be used for ray tracing for the Green's inversion 
 Please read the description of examples for better understanding the examples!
 ____________________________________________________________________________
 
-DIGITAL PHANTOM AND K-WAVE
+Simulation of ultrasound data using K-WAVE
 ____________________________________________________________________________
 The pressure field used as the benchmark is simulated using the k-Wave toolbox.  www.k-Wave.org (v. 1.3.) [5].
 The k-Wave toolbox and the functions for an off-grid interpolation is available in this project. 
 ..............................................................................
 Notation: It was noticed that correction steps described in [8] must be applied on the k-Wave, either v. 1.3 or v. 1.4,
-for getting accurate signals matching the analytic Greens' formula in homogenous domain.
-Here, instead of applying the required corrections to the k-Wave, the presure time series simulated by the k-Wave are kept
+for getting accurate signals matching the analytic Greens' formula in homogenous media (only water).
+Here, instead of applying the required corrections to the k-Wave, the pressure time series simulated by the k-Wave are kept
 uncahnged, and an inverse of the required correction steps was enforced on the emission pulse which is used as the input to
 the Green's formula in homogeneous and heterogeneous media. Taking both approaches are the same, and it will affect only our 
 assumption about the emission pulse. (please contact me if you need more information!)

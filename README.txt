@@ -29,9 +29,12 @@ these projects was completely stopped by the associated department at University
 in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
-1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022, https://arxiv.org/abs/2211.00316/ .
-2 - A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering for biomedical ultrasound tomography❞, Inverse Problems vol. 37, no.11, 115003, 2021.  https://iopscience.iop.org/article/10.1088/1361-6420/ac28ed/
-3- A. Javaherian, F. Lucka and B. T. Cox, ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound tomography of the breast❞, Inverse Problems, 36 125010.  https://iopscience.iop.org/article/10.1088/1361-6420/abc0fc/  
+1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,
+https://arxiv.org/abs/2211.00316/.
+2 - A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering for biomedical ultrasound tomography❞, Inverse Problems vol. 37, no.11, 115003, 2021.
+https://iopscience.iop.org/article/10.1088/1361-6420/ac28ed/.
+3- A. Javaherian, F. Lucka and B. T. Cox, ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound tomography of the breast❞, Inverse Problems, 36 125010.
+https://iopscience.iop.org/article/10.1088/1361-6420/abc0fc/.  
 
 The studies [1] and [2] correspond to high-resolution and quantitative reconstruction of the sound speed of the breast from synthetic
 ultrasound data simulated using the k-Wave toolbox (www.k-wave.org/). The transducers are assumed points which are placed on a 2D ring,
@@ -74,9 +77,12 @@ But because including all the grid points for an interpolation to an off-grid po
 the interpolation to the grid points close to the off-grid point by setting the deafult 'BLITolerance' 0.1 or 0.05. Based on my experince,
 these values for 'BLITolerance' are large and will deteriorate the first arrival of the signals.
 For preserving the information in the simulated  pressure field including the first arrival of the signals, 'BLITolerance' was here set 0.001.
-Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore increases the required memory for the k-Wave simulation, but it will make the k-Wave simulations accurate.
+Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore increases the required memory for the k-Wave simulation,
+but it will make the k-Wave simulations accurate.
 
-It is reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
+It must be reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the
+signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using
+time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
 
 
 2) A digital breast phantom developed by Mark Anastasio's group is used in this project. This phantom must be downloaded via the link:'...
@@ -97,7 +103,9 @@ This example validates ray approximation to heterogeneous Green's function in ap
 a comparison with the phase and amplitude simulated by the k-Wave.
 
 2) .../simulation/example_2D_image_tof_greens.m (paper [1])
-This example reconstructs image of the sound speed using inversion approaches based on ray approaximation to heterogeneous Green's function [1,2]. Early iterations of an image reconstruction algorithm using time-of-flight data will be used for providing initial guess for the Green's inversion approaches. Note that the Green's inversion approach used in [2] was used in [1] as the benchmark.
+This example reconstructs image of the sound speed using inversion approaches based on ray approaximation to heterogeneous Green's function [1,2].
+Early iterations of an image reconstruction algorithm using time-of-flight data will be used for providing initial guess for the Green's inversion approaches.
+Note that the Green's inversion approach used in [2] was used in [1] as the benchmark.
 
 3) .../simulation/example_3D_image_tof.m (paper [3])
 This example reconstructs a quantitatively accurate, low resolution and volumetric (full-3D) image of the sound speed

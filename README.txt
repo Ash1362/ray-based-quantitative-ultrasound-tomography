@@ -20,7 +20,7 @@ ____________________________________________________________________________
 
 ACKNOWLEDGEMENT
 ____________________________________________________________________________
-ThIS project was financially supported by European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411), and Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1).
+This project was financially supported by European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411), and Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1).
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,

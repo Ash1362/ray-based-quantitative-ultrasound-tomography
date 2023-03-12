@@ -20,12 +20,11 @@ ____________________________________________________________________________
 
 ACKNOWLEDGEMENT
 ____________________________________________________________________________
-The project was (only financially) supported by :
+The project was only financially supported by :
 1) European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411)
 2) Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1)
 
-Regarding technical support, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to
-these projects was completely stopped by the associated department at University College London, and the code developer has been working
+Regarding technical support, since 2021, when the code developer raised some issues noticed in the projects, the contribution of the code developer to these projects was stopped by the associated department at University College London, and the code developer has been working
 in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
@@ -58,7 +57,7 @@ ____________________________________________________________________________
 
 1) Get access to the UST data
 Download the folder ''data_ust_kWave_transmission'' via the link:
-https://doi.org/10.5281/zenodo.7717290/ [7] 
+https://doi.org/10.5281/zenodo.7717290 [7] 
 
 Add the folder ''data_ust_kWave_transmission'' to the path:
 .../r-Wave/simulation/data/...

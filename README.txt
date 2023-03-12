@@ -24,7 +24,9 @@ The project was (only financially) supported by :
 1) European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411)
 2) Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1)
 
-Regarding technical support, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to these projects was completely stopped by the associated department at University College London, and the code developer has been working in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
+Regarding technical support, since 2021, when the code developer raised some issues noticed, the contribution of the code developer to
+these projects was completely stopped by the associated department at University College London, and the code developer has been working
+in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022, https://arxiv.org/abs/2211.00316/ .
@@ -118,7 +120,7 @@ The k-Wave toolbox and the functions for an off-grid interpolation is available 
 ..............................................................................
 Notation: It was noticed that correction steps described in [8] must be applied on the k-Wave, either v. 1.3 or v. 1.4,
 for getting accurate signals matching the analytic Greens' formula in homogenous media (only water).
-Here, instead of applying the required corrections to the k-Wave, the pressure time series simulated by the k-Wave are kept
+Here, instead of applying the required corrections to the k-Wave, the pressure time series simulated by the k-Wave were kept
 uncahnged, and an inverse of the required correction steps was enforced on the emission pulse which is used as the input to
 the Green's formula in homogeneous and heterogeneous media. Taking both approaches are the same, and it will affect only our 
 assumption about the emission pulse. (please contact me if you need more information!)

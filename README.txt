@@ -20,12 +20,7 @@ ____________________________________________________________________________
 
 ACKNOWLEDGEMENT
 ____________________________________________________________________________
-The project was only financially supported by :
-1) European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411)
-2) Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1)
-
-Regarding technical support, since 2021, when the code developer raised some issues noticed in the projects, the contribution of the code developer to these projects was stopped by the associated department at University College London, and the code developer has been working
-in complete isolation (only few contacts via email) until the end of his appointment with UCL.  
+ThIS project was financially supported by European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411), and Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1).
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,

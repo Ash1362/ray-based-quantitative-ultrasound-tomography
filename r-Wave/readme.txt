@@ -20,9 +20,7 @@ ____________________________________________________________________________
 
 ACKNOWLEDGEMENT
 ____________________________________________________________________________
-Thus project was financially supported by European Commission: PAMMOTH - Photoacoustic/Ultrasound Mammoscopy for evaluating screening-detected abnormalities in the breast (732411),
-and Research Councils UK: WHOLE-BODY, HIGH RESOLUTION, 3D, SMALL ANIMAL PHOTOACOUSTIC AND ULTRASOUND COMPUTED TOMOGRAPHY SYSTEM (EP/T014369/1).
-____________________________________________________________________________
+_______________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,
 https://arxiv.org/abs/2211.00316/.
@@ -70,9 +68,9 @@ However, because using a k-space pseudospectal approach, the gradient at each po
 all the grid points must be contributed to an interpolation to an off-grid point, when the same approach [6] is taken for interpolation.
 But because including all the grid points for an interpolation to an off-grid point is very costly, 'BLITTolerance' is used for confining 
 the interpolation to the grid points close to the off-grid point by setting the deafult 'BLITolerance' 0.1 or 0.05. Based on my experince,
-these values for 'BLITolerance' are large and will deteriorate the first arrival of the signals.
-For preserving the information in the simulated  pressure field including the first arrival of the signals, 'BLITolerance' was here set 0.001.
-Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore increases the required memory for the k-Wave simulation,
+these values for 'BLITolerance' are large and will deteriorate the first arrival of the signals. For preserving the information in the simulated
+pressure field including the first arrival of the signals, 'BLITolerance' was here set 0.001.
+Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore an an increase in the required memory for the k-Wave simulation,
 but it will make the k-Wave simulations accurate.
 
 It must be reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the

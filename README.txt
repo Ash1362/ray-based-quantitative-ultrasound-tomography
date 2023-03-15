@@ -20,7 +20,10 @@ ____________________________________________________________________________
 
 ACKNOWLEDGEMENT
 ____________________________________________________________________________
+...
 
+____________________________________________________________________________
+EXAMPLES
 ____________________________________________________________________________
 The examples include the scenarios in the papers:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,

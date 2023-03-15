@@ -50,7 +50,7 @@ ____________________________________________________________________________
 GETTING STARTED
 ____________________________________________________________________________
 
-1) Get access to the UST data
+1) Simulate or get access to the UST data
 Download the folder ''data_ust_kWave_transmission'' via the link:
 https://doi.org/10.5281/zenodo.7717290 [7] 
 

@@ -52,8 +52,15 @@ ____________________________________________________________________________
 
 GETTING STARTED
 ____________________________________________________________________________
-
-1) Simulate or get access to the UST data
+1) Download the digital phantom of the breast: A digital breast phantom developed by Mark Anastasio's group at University of illinois is used in this project. This phantom must be downloaded via the link:'...
+https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/ [4].
+The folder 'Neg_47_Left' is used for simulation of UST data for all studies in this toolbox.
+The folder 'Neg_47_Left' must be added to the directory:
+'.../simulation/data/phantom/OA-BREAST/Neg_47_Left/...'
+.........................................................................................
+2) Run ''startup_simulation_ust.m''
+.........................................................................................
+3) Simulate or get access to the UST data
 Download the folder ''data_ust_kWave_transmission'' via the link:
 https://doi.org/10.5281/zenodo.7717290 [7] 
 
@@ -63,42 +70,33 @@ Add the folder ''data_ust_kWave_transmission'' to the path:
 This folder includes the ultrasound data simulated by the k-Wave toolbox. Alternatively, the user can set ''data_sim =true;'' in the
 example scripts. By setting this parameter true, the ultrasound data are simulated and are stored in the associated path.
 
-................................................................
-The importance of 'BLITolerance' for the off-grid simulation:
+Remark: The importance of 'BLITolerance' for the off-grid simulation:
 By setting ''data_sim=true;'', the following point must be considered.  For the results in the papers [1] and [2], the transducers are assumed off-grid points which are placed on a 2D ring. In the k-Wave, for interpolation of the simulated pressure field between the grid points and an off-grid point representing a tranducer, an optional prameter 'BLITolerance', which is in the k-Wave by default 0.1 or 0.05, must be set. This parameter adjusts the portion of the grid points included in the interpolation to an off-grid point, and is used for reducing the computational cost of the interpolation. However, because using a k-space pseudospectal approach, the gradient at each point is computed using the information on all grid points, all the grid points must be contributed to an interpolation to an off-grid point, when the same approach [6] is taken for interpolation. However, because including all the grid points for an interpolation to an off-grid point is very costly, 'BLITTolerance' is used for confining the interpolation to the grid points close to the off-grid point by setting the default 'BLITolerance' 0.1 or 0.05. Based on my experince, these values for 'BLITolerance' are large and will deteriorate the information of the signals, for example first arrivals. For preserving the information in the simulated pressure field including the first arrival of the signals, 'BLITolerance' was here set 0.001. Note that smaller 'BLITolerance' means inclusion of larger number of grid points, and therefore an increase in the required memory for the k-Wave simulation, but it will make the k-Wave simulations accurate. Therefore, increasing the 'BLITolerance' for the k-Wave simulations will gradually (and slightly) affect the reconstructed images using the ray-based approaches. For example, by increasing the 'BLITolerance' from 0.001 to 0.01, the required memory for the k-Wave simulations will decrease, but the relative error of the final reconstructed image using the Green's approach based on the Gauss-Newton method will increase from 37.0% to 39.0%. This observation supports the reconstruction approach in this study, because it shows that a portion of error in the reconstructed images are because of errors in the k-Wave simulation, considering that we are using different numerical approaches for simulating ultrasound data (k-Wave) and image reconstruction (ray-based).
 
 It must be reminded that that in [1] and [2], early iterations of a time-of-flight-based image reconstruction algorithm using the first arrival of the signals is used for providing initial guess for the Green's inversion approaches. In study [3], which fully corresponds to an image reconstruction using time-of-flight data in full-3D geomtery, the interpolation is done using a neighboring approach.
 
-
-2) A digital breast phantom developed by Mark Anastasio's group is used in this project. This phantom must be downloaded via the link:'...
-https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/ [4].
-The folder 'Neg_47_Left' is used for simulation of UST data for all studies in this toolbox.
-The folder 'Neg_47_Left' must be added to the directory:
-'.../simulation/data/phantom/OA-BREAST/Neg_47_Left/...'
-
-3) Run ''startup_simulation_ust.m''
-
+...........................................................................
 4) Run examples in the path ''...r-Wave/simulation/examples-simulation/....''
 ____________________________________________________________________________
 
 RUNNING EXAMPLES
 ____________________________________________________________________________
-1) .../simulation/example_2D_validate_greens.m  (paper [1])
+1) .../simulation/examples-simulation/example_2D_validate_greens.m  (paper [1])
 This example validates ray approximation to heterogeneous Green's function in approximating phase and amplitude via
 a comparison with the phase and amplitude simulated by the k-Wave.
 
-2) .../simulation/example_2D_image_tof_greens.m (paper [1])
+2) .../simulation/examples-simulation/example_2D_image_tof_greens.m (paper [1])
 This example reconstructs image of the sound speed using inversion approaches based on ray approaximation to heterogeneous Green's function [1,2].
 Early iterations of an image reconstruction algorithm using time-of-flight data will be used for providing initial guess for the Green's inversion approaches.
 Note that the Green's inversion approach used in [2] was used in [1] as the benchmark.
 
-3) .../simulation/example_3D_image_tof.m (paper [3])
+3) .../simulation/examples-simulation/example_3D_image_tof.m (paper [3])
 This example reconstructs a quantitatively accurate, low resolution and volumetric (full-3D) image of the sound speed
 from time-of-flight of ultrasound data simulated on a hemispherical detection surface. The user can compare the images
 reconstructed using the bent-ray inversion approach [3] with the same image reconstructed using straight rays.  
 ('matrix_construction_method= 'bent-ray'), or ('matrix_construction_method= 'straight-ray')
 
-4) .../simulation/example_fish_eye.m (paper [3])
+4) .../simulation/examples-simulation/example_fish_eye.m (paper [3])
 This example tests ray tracing algorithms on a ❝Maxwell's Fish-eye lens❞ phantom.
 All the used ray tracing algorithms in this examplem can be used for time-of-flight-based reconstruction of the sound speed,
 but only 'Rung-kutta-2nd' can be used for ray tracing for the Green's inversion approach. 
@@ -122,7 +120,6 @@ ____________________________________________________________________________
 
 REFERENCES
 __________________________________________________________________________
-
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022. https://arxiv.org/abs/2211.00316/ .
 2 - A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering for biomedical ultrasound tomography❞, Inverse Problems vol. 37, no.11, 115003, 2021. https://iopscience.iop.org/article/10.1088/1361-6420/ac28ed/ 
 3- A. Javaherian, F. Lucka and B. T. Cox, ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound tomography of the breast❞, Inverse Problems, 36 125010. https://iopscience.iop.org/article/10.1088/1361-6420/abc0fc/  

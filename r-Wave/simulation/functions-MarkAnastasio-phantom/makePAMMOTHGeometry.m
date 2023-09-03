@@ -1,4 +1,4 @@
-function setting = makePAMMOTHGeometry(radius, dx, z_pos_height, sensor_dist, plot_setting)
+function setting = makePAMMOTHGeometry(radius, dx, radius_to_height, z_pos_height, sensor_dist, plot_setting)
 %MAKEPAMMOTHGEOMETRY Create geometrical properties of the bowl-shaped 
 % PAMMOTH scanner 
 %
@@ -22,9 +22,8 @@ function setting = makePAMMOTHGeometry(radius, dx, z_pos_height, sensor_dist, pl
 % INPUTS:
 %       radius - radius of the bowl [m]
 %       dx     - spatial resolution of the model [m]
-%
-%
-% OPTIONAL INPUTS:
+%       radius_to_height - the radius of the detection surface (or ring)
+%                         to height (z size) of the grid
 %       z_pos_height - heigth of volume included above z = 0 (default = 0)
 %       sensor_dist  - additional volume included to guarantee a certain 
 %                      distance of the sensors from the volume boundary
@@ -84,7 +83,7 @@ y_vec = x_vec;
 Ny    = Nx;
 
 % construct z grid, again such that 0 is in it and that it has even length
-NzNeg   = ceil((radius + sensor_dist) / dx);
+NzNeg   = ceil((radius/radius_to_height + sensor_dist) / dx);
 NzPos   = ceil(max(z_pos_height, sensor_dist) / dx);
 NzPos   = NzPos + mod(NzPos+NzNeg,2);
 z_vec   = dx * [(-(NzNeg+1):1:0),(1:NzPos)];

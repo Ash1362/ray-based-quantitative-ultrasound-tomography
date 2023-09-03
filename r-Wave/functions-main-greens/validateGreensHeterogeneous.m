@@ -2,9 +2,9 @@ function [ray_position, ray_time, ray_absorption, ray_position_left, ray_positio
 adjoint_ray_position_left, adjoint_ray_position_right, ray_spacing,...
 rayspacing_receiver, relative_discrepancy_absorbing, relative_discrepancy_nonabsorbing] =...
     validateGreensHeterogeneous(data_object, data_water, time_array, emitter, receiver,...
-     kgrid, medium, simulation_prop, tof_discrepancy, plot_directory, varargin)
+     simulation_prop, tof_discrepancy, plot_directory, varargin)
 %VALIDATEGREENSHETEROGENEOUS compares the pressure field approximated using Green's function
-% with the pressure field simulated by k-Wave for a heterogeneous medium.
+% with the pressure field simulated by the k-Wave for a heterogeneous medium.
 %   
 %
 % DESCRIPTION:
@@ -49,28 +49,36 @@ rayspacing_receiver, relative_discrepancy_absorbing, relative_discrepancy_nonabs
 %                           angles) with each cell a 2/3 x num_transducer array of
 %                           Cartesian position of transducers for each
 %                           angle. (num_receiver = num_angle x num_transducer)
-%      sound_speed_water  - the sound speed [m/s] in only water
-%      kgrid               - a struct array including the information for the k-wave simulation 
-%      medium              - a struct array for the acoustic maps used for
-%                            the k-Wave simulation. This struct includes the
-%                            fields:
-%      'sound_speed'       - the sound spped distribution [m/s]
-%      'alpha_coeff'       - the absorption coefficient [$dBMHz^{-y}
-%                            cm^{-1}$]
-%      'alpha_power'       - the exponent power of the attenuation used for
-%                            the k-Wave simulation
-%      simulation_prop     - a struct containing some properties of the
-%                            simulation. This includes the fields:
-%      'PML'               - the number of PML layers
-%      'f_max'             - the maximum frquency supprted by the grid for 
-%                            the k-Wave simulation
-%      'z_offset'          - For 2D case, an empty variable. For 3D case,
-%                            the difference of the z coordinate for the
-%                            origin-centered grid used for the k-Wave
-%                            simulation and the grid containing
-%                            the real coordinates used for ray tracing and
-%                            image reconstruction.
-%      'detec_radius'      - the radius of the detection ring (surface)
+%      simulation_prop      - a struct array containing the information and properties of
+%                             the k-wave simulation. This struct includs the fields: 
+%      'PML'                - a  1 x dim vector of the number of PML layers
+%                             along each dimension
+%      'f_max'              - the maximum frequency [Hz] supported by the
+%                             computational grid    
+%      'detec_radius'       - the radius of the detection ring (surface)
+%      'z_offset'           - the z offset [m] between the grid for k-Wave simulation
+%                             and the grid for image reconstruction. The
+%                             image reconstruction is done on a detection surface
+%                             (ring) with centre at the origin. (empty for
+%                             2D case)
+%      'data_path'          - the data path for storing the simulated UST
+%                             data and the computed TOFs
+%      'x'                  - the x position of the grid for the k-Wave
+%                             simulation
+%      'y'                  - the y position of the grid for the k-Wave
+%                             simulation
+%      'z'                  - the z position of the grid for the k-Wave
+%                             simulation
+%      'sound_speed'        - the ground truth sound speed distribution [m/s]
+%                             (used only for evaluation purposes, not for 
+%                              image reconstruction)
+%      'sound_speed_ref'    - the sound speed [m/s] in only water
+%      'alpha_coeff'        - the absorption coefficient [dBMHz^{-y} cm^{-1}]
+%      'alpha_power'        - the exponent power of the acoustic absorption used for
+%                             the k-Wave simulation
+%      't_array'            - the time array [s] containing time instants on
+%                             which the synthetic data for object in water 
+%                             and only water are computed.
 %      tof_discrepancy     - the num_receiver x num_emitter matrix of the
 %                            discrepancy of time-of-flights beween the
 %                            object-in-water data and only-water data.
@@ -217,9 +225,8 @@ para.deconvolution_parameter = 1e-6;
 para.num_discretised_frequencies = 50;
 para.grid_spacing = 1e-3;
 para.z_pos_height = 1e-2;
-para.mask_coeff = 1.03; 
+para.mask_coeff = 1.05; 
 para.shot_angles = 'raylinking';
-para.raylinking_method = 'Regula-Falsi';
 para.attenuation_geom_method = 'auxiliary';
 para.auxiliary_method = 'paraxial';
 para.angle_perturb_auxiliary = pi/(2*180);
@@ -290,7 +297,6 @@ if(~isempty(varargin))
     end
 end
 
-
 % get the index of the chosen emitter for plotting
 emitter_index = para.emitter_index;
 
@@ -302,9 +308,6 @@ receiver_index = para.receiver_index;
 disp(['The number of the chosen emitter is:' num2str(emitter_index)]);
 disp(['The number of the chosen receiver is:' num2str(receiver_index)]);
 
-
-
-
 % the method for initilisation of ray linking
 raylinking_initialisation = 'Local';
 if strcmp(raylinking_initialisation, 'Global')
@@ -314,17 +317,33 @@ end
 % get the number of emitters
 num_emitter = size(emitter.positions, 2);
 
-% get the radius of the detection surface (ring)
-detec_radius = norm(emitter.positions(:, 1));
-
 % check the position of the transducers used for the k-Wave simulation 
 % and image reconstruction is consistent.
 if ~isempty(simulation_prop)
-if norm(detec_radius - simulation_prop.detec_radius)> 1e-10
-    error(['The position of the transducers for data simulation and'...
-        'image reconstruction is not consistent.'])
+    switch simulation_prop.detection_geom
+        case 'sphere'
+            
+            % get the radius of the detection surface (ring)
+            detec_radius = norm(emitter.positions(:, 1));
+            
+            if abs(detec_radius - simulation_prop.detec_radius)> 1e-10
+                error(['The position of the transducers for data simulation and'...
+                    'image reconstruction is not consistent.'])
+            end
+        case 'cylinder'
+            
+            % get the radius of the detection surface (ring)
+            detec_radius = norm(emitter.positions(1:2, 1));
+
+            if abs(detec_radius - simulation_prop.detec_radius)> 1e-10
+                error(['The position of the transducers for data simulation and'...
+                    'image reconstruction is not consistent.'])
+            end
+            
+    end
 end
-end
+
+
 
 % choose a range for the angular frequency [rad/s]
 frequency_range = 2 * pi * [0, simulation_prop.f_max];
@@ -371,8 +390,15 @@ switch para.shot_angles
     
     case 'raylinking'
         
+        switch dim
+            case 2
+                
         % the method for ray linking
         raylinking_method = 'Regula-Falsi';
+            case 3
+           % the method for ray linking
+        raylinking_method = 'Quasi-Newton';  
+        end
         
         % the stopping threshold for ray linking
         raylinking_threshold = 1e-6;  
@@ -443,8 +469,6 @@ disp(['The approach for computing the auxiliary rays is: '...
      para.auxiliary_method])
  end
  
- 
- 
 
 % get the ray spacing [m]
 ray_spacing = para.grid_spacing * para.raytogrid_spacing;
@@ -455,14 +479,14 @@ ray_spacing = para.grid_spacing * para.raytogrid_spacing;
 switch para.gridtoray_interp
     case 'Bilinear'
         
-        grid_expansion_coeff = 1.02;
+        grid_expansion_coeff = 1 + 0.07 * 1000 * para.grid_spacing;
     case 'Bspline'
         
         % B-spline uses four adjacent grid points for interpolation, so the
         % grid is enlarged such that the adjacent grid points about the
         % target grid points do not exceed the edge of the computational
         % grid.
-        grid_expansion_coeff = 1.05;
+        grid_expansion_coeff = 1 + 0.07 * 1000 * para.grid_spacing;
         
 end
 
@@ -515,7 +539,12 @@ recon_grid = makeReconstructionGrid(para.grid_spacing * ones(1, dim),...
 % GET THE MASK FOR RAY TRACING
 % =========================================================================
 % update the mask for ray tracing
+switch dim
+    case 2
 mask_raytracing = recon_grid.x.^2 + recon_grid.y.^2 < (para.mask_coeff * detec_radius)^2;
+    case 3
+mask_raytracing = recon_grid.x.^2 + recon_grid.y.^2 + recon_grid.z.^2 < (para.mask_coeff * detec_radius)^2;
+end
 
 %% ========================================================================
 % INTERPOLATE THE MEDIUM'S PROPERTIES ONTO THE GRID FOR RAY TRACING 
@@ -527,17 +556,17 @@ switch recon_grid.dim
         
         % interpolate the sound speed from the grid for data simulation
         % onto the grid for ray tracing and computing the Green's function
-        sound_speed_phantom = interpn(kgrid.x, kgrid.y, medium.sound_speed,...
-            recon_grid.x, recon_grid.y);
-        sound_speed_phantom(~isfinite(sound_speed_phantom)) = medium.sound_speed_ref;
+        sound_speed_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+            simulation_prop.sound_speed, recon_grid.x, recon_grid.y);
+        sound_speed_phantom(~isfinite(sound_speed_phantom)) = simulation_prop.sound_speed_ref;
         
         
-        if isfield(medium, 'alpha_coeff')
+        if isfield(simulation_prop, 'alpha_coeff')
             
             % interpolate the absorption coefficient from the grid for data simulation
             % onto the grid for ray tracing and computing the Green's function
-            absorption_phantom = interpn(kgrid.x, kgrid.y, medium.alpha_coeff,...
-                recon_grid.x , recon_grid.y);
+            absorption_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+                simulation_prop.alpha_coeff, recon_grid.x, recon_grid.y);
             absorption_phantom(~isfinite(absorption_phantom)) = 0;
             
         else
@@ -549,19 +578,21 @@ switch recon_grid.dim
         
         % interpolate the sound speed from the grid for data simulation
         % onto the grid for ray tracing and computing the Green's function
-        sound_speed_phantom = interpn(kgrid.x, kgrid.y, kgrid.z, medium.sound_speed,...
-            recon_grid.x, recon_grid.y, recon_grid.z + simulation_prop.z_offset);
-        sound_speed_phantom(:, :, end) = medium.sound_speed_ref;
+        sound_speed_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+                simulation_prop.z - simulation_prop.z_offset, simulation_prop.sound_speed,...
+            recon_grid.x, recon_grid.y, recon_grid.z);
+        sound_speed_phantom(~isfinite(sound_speed_phantom)) = simulation_prop.sound_speed_ref;
         
         % interpolate the absorption coefficient
-        if isfield(medium, 'alpha_coeff')
+        if isfield(simulation_prop, 'alpha_coeff')
             
           
             % interpolate the absorption coefficient from the grid for data simulation
             % onto the grid for ray tracing and computing the Green's function
-            absorption_phantom = interpn(kgrid.x, kgrid.y, kgrid.z, medium.alpha_coeff,...
-                recon_grid.x, recon_grid.y, recon_grid.z + simulation_prop.z_offset);
-            absorption_phantom(:, :, end) = 0;
+            absorption_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+                simulation_prop.z - simulation_prop.z_offset, simulation_prop.alpha_coeff,...
+                recon_grid.x, recon_grid.y, recon_grid.z);
+            absorption_phantom(~isfinite(absorption_phantom)) = 0;
             
             
         else
@@ -570,11 +601,12 @@ switch recon_grid.dim
         
 end
 
-if para.remove_scattered_waves
-    
 % compute the distance between the single emitter and receivers
-distance_emitters_receivers = calculateDistanceEmitterReceiver(...
+distance_emitter_receivers = calculateDistanceEmitterReceiver(...
     emitter.positions, receiver.positions, []);
+
+if para.remove_scattered_waves
+   
 
 % get the first arrival [s] of the excitation pulse
 tof_excit_args = {'Method', 'Modified_AIC', 'Length_moving_windows',...
@@ -593,12 +625,18 @@ disp(['The excitation time is:' num2str(1e6 * time_excit) 'microseconds'])
     
 % calculate the centre of the time window including the transmitted pulse
 % using the calculated time-of-flights of the measured (simulated) signals
-time_window_centre = time_excit + 1/medium.sound_speed_ref...
-    * distance_emitters_receivers + tof_discrepancy(:);
+time_window_centre = time_excit + 1/simulation_prop.sound_speed_ref...
+    * distance_emitter_receivers + tof_discrepancy(:);
 
 % the edges for the time window [s] used for removing the scattered waves
 time_window_interval = [-2, +6] * 1e-6;
 
+end
+
+% make the distances empty for 2D case, but keep it for computing Green's
+% function for 3D case
+if dim == 2
+    distance_emitter_receivers = [];
 end
 
 %%=========================================================================
@@ -654,19 +692,12 @@ end
         'raylinking_method', raylinking_method, 'raytogrid_spacing', para.raytogrid_spacing,...
         'auxiliary_ray', trace_auxiliary_ray, 'auxiliary_method', para.auxiliary_method,...
         'reference_angle', para.angle_perturb_auxiliary, 'max_num_points_factor', 2,...
-        'raylinking_method', para.raylinking_method, 'smoothing_window_size', para.smoothing_window_size,...
+        'smoothing_window_size', para.smoothing_window_size,...
         'max_iter', para.max_raylinking_iter, 'varepsilon', raylinking_threshold,...
-        'angular_frequency_centre', omega(frequency_index), 'absorption_power', medium.alpha_power};
+        'angular_frequency_centre', omega(frequency_index), 'absorption_power',...
+        simulation_prop.alpha_power};
     
-    
-    % compute the trajectory of the rays and accumulated parameters along
-    % the rays for the object-in-water
-    [~, ~, ~, ray_position, ray_time, ray_absorption,...
-        rayspacing_receiver, ray_position_left, ray_position_right,...
-        adjoint_ray_position_left, adjoint_ray_position_right, ~] =...
-        computeRaysParameters(recon_grid, medium.sound_speed_ref./sound_speed_phantom,...
-        absorption_phantom, emitter.positions, receiver.positions, initial_angles,...
-        mask_raytracing, [], simulation_prop.z_offset, ray_args{:});
+   
     
     % compute the trajectory of the rays and accumulated parameters along
     % the rays for the only-water
@@ -674,20 +705,73 @@ end
         ray_position_left_water, ray_position_right_water, ~, ~, ~] = ...
         computeRaysParameters(recon_grid, ones(recon_grid.size),...
         zeros(recon_grid.size), emitter.positions, receiver.positions,...
-        initial_angles, mask_raytracing, [], simulation_prop.z_offset, ray_args{:});
+        initial_angles, mask_raytracing, [], 0, ray_args{:});
     
     % the acoustic absorption in water is set scalar zero.
     ray_absorption_water = 0;
     
-
-
-
+    
+    switch dim
+        
+        case 2
+           
+    % compute the trajectory of the rays and accumulated parameters along
+    % the rays for the object-in-water
+    [~, ~, ~, ray_position, ray_time, ray_absorption,...
+        rayspacing_receiver, ray_position_left, ray_position_right,...
+        adjoint_ray_position_left, adjoint_ray_position_right, ~] =...
+        computeRaysParameters(recon_grid, simulation_prop.sound_speed_ref./sound_speed_phantom,...
+        absorption_phantom, emitter.positions, receiver.positions, initial_angles,...
+        mask_raytracing, [], 0, ray_args{:});
+    
+        case 3
+            
+            % get the number of levels for ray tracing in the 3D case
+            num_level = 4;
+            
+            for ind_level = 1 : num_level + 1
+                
+                % get the sound speed for the current level
+                sound_speed_level = simulation_prop.sound_speed_ref...
+                    + (ind_level-1)/num_level * (sound_speed_phantom -...
+                    simulation_prop.sound_speed_ref);
+                
+                
+                % compute the trajectory of the rays and accumulated parameters along
+                % the rays for the object-in-water
+                [~, ~, initial_angles, ray_position, ray_time, ray_absorption,...
+                    rayspacing_receiver, ray_position_left, ray_position_right,...
+                    adjoint_ray_position_left, adjoint_ray_position_right, ~] =...
+                    computeRaysParameters(recon_grid, simulation_prop.sound_speed_ref./sound_speed_level,...
+                    absorption_phantom, emitter.positions, receiver.positions, initial_angles,...
+                    mask_raytracing, [], 0, ray_args{:});
+                
+            end
+           
+    end
+    
+   
 % get the number of grid points inside the mask
 % num_gridpoints = nnz(mask_raytracing);
 
 % get the Cartesian position of the grid points inside the binary mask
+
+% x coordinate
 grid_x = recon_grid.x(mask_raytracing);
+
+% y coordinate
 grid_y = recon_grid.y(mask_raytracing);
+
+% x-y coordinates
+grid_pos = [grid_x, grid_y];
+
+% add a column for the z-coordinate 
+if dim == 3
+    grid_pos = [grid_pos, recon_grid.z(mask_raytracing)];
+    distance_emitter_receivers = 1;
+else
+    distance_emitter_receivers = [];
+end
 
 
 %% ========================================================================
@@ -697,17 +781,17 @@ grid_y = recon_grid.y(mask_raytracing);
 % Green's function
 approximate_pressure = @(pressure_source, time_delays, geom_attenuation, absorption,...
     caustic_number, source_mode) approxPressureGreens(pressure_source, time_delays,...
-    geom_attenuation, absorption, caustic_number, omega, medium.alpha_power,...
-    'analytic', source_mode);
+    geom_attenuation, absorption, caustic_number, omega, simulation_prop.alpha_power,...
+    distance_emitter_receivers, source_mode);
 
 % Define a handle function for approximating the parameters of the Green's
 % function on the grid points and receivers
 calc_parameters = @(ray_position, ray_time, ray_absorption,...
     ray_position_left, ray_position_right) calcParametersGreens(....
     ray_position, ray_time, ray_absorption, ray_position_left,...
-    ray_position_right, sound_speed_phantom/medium.sound_speed_ref,...
-    grid_x, grid_y, ray_spacing, detec_radius, para.mask_coeff, 'forward', 'analytic',...
-    false, interp_receiver);
+    ray_position_right, sound_speed_phantom/simulation_prop.sound_speed_ref,...
+    grid_pos, ray_spacing, detec_radius, para.mask_coeff,...
+    'forward', false, interp_receiver);
 
 % Define a handle function for approximating the pressure field on the grid points and
 % the grid points using the Green's function
@@ -757,18 +841,15 @@ ray_time_receiver = cell(num_emitter, 1);
 ray_time_receiver_water = cell(num_emitter, 1);
 
 
-
-
 parfor (ind_emitter = 1: num_emitter, para.num_worker_pool)
-    % for ind_emitter = 1: num_emitter
+   %  for ind_emitter = 1: num_emitter
     
     % get the object-inside-water measured times series for the current emitter
     signal_measured_emitter = data_object_cell{ind_emitter};
     
     % get the only-water measured times series for the current emitter
     signal_measured_water_emitter = data_water_cell{ind_emitter};
-    
-    
+ 
     % get the parameters of the Green's function for the object inside
     % water on the grid points and receivers
     [parameters_grid{ind_emitter}, parameters_receiver, nan_grid_binary{ind_emitter}, caustic_number,...
@@ -787,19 +868,17 @@ parfor (ind_emitter = 1: num_emitter, para.num_worker_pool)
         receiver_order_water, ~, ~, ~] = calc_parameters(...
         ray_position_water{ind_emitter}, ray_time_water{ind_emitter}, ray_absorption_water,...
         ray_position_left_water{ind_emitter}, ray_position_right_water{ind_emitter});
-    
-    
+     
     % approximate the pressure field for only water on the grid points and receivers
     [~, signal_approximated_water{ind_emitter}, ray_time_receiver_water{ind_emitter}] = calc_pressure(...
         approximate_pressure, parameters_grid_water, 0, nan_grid_binary_water,...
         parameters_receiver_water, 0, receiver_order_water, interp_receiver_emitter);
     
-    
-    % Remove the acoustic absorption from the matrices for the parameters
-    % of the Green's function, and compute the pressure field excluding the acoustic
+    % discard the column corresponding to acoustic absorption from the matrix for the parameters
+    % of the Green's function, and compute the pressure field by neglecting the acoustic
     % absorption as benchmark for evaluating the accuracy of including acoustic absorption
     % in computing the pressure field using the Green's function.
-    % remove the acosutic absorption from parameters
+    % discard the column corresponding to the acoustic absorption from parameters
     if ~isscalar(ray_absorption{ind_emitter})
         parameters_receiver(:, end) = [];
         parameters_grid{ind_emitter} = parameters_grid{ind_emitter}(:, [1, 2, 4]);
@@ -876,7 +955,6 @@ relative_discrepancy_nonabsorbing = cell2mat(relative_discrepancy_nonabsorbing);
 % get the maximum absolute of the pressure source
 source_max = max(abs(pressure_source_original));
 
-
 % plot the amplitude of the pressure field simulated by k-Wave and approximated
 % by the Green's function only for the chosen emitter-receiver pairs
 h5 = figure;
@@ -905,25 +983,22 @@ phase_measured_receiver = wrapToPi(angle(signal_measured{emitter_index}(receiver
 
 
 % get the receiver indices on which the discrepancy in phase is
-% greater than 1 rad. Those discrepncies are because of the jumps at -pi and +pi.
+% greater than 1 pi rad. Those discrepncies are because of the jumps at -pi and +pi.
 % For these prticular receiver indices, we shift the phase of the measured signals 
 % (simulated by k-Wave) by -2pi or +2pi, with signs opposite to the sign of the
 % phase on th receivers.
 discontinuity_indices = find(abs(phase_approximated_receiver - phase_measured_receiver)> 1);
-
 
 % shift the phase of the measured signals (simulated by k-Wave) by -2pi or +2pi
 phase_measured_receiver(discontinuity_indices) =...
    phase_measured_receiver(discontinuity_indices)...
     - 2 * sign(phase_measured_receiver(discontinuity_indices));
 
-
-
 % plot the phase of the pressure field simulated by k-Wand and approximated
-% by the Green's function only for the chosen emitter-receiver pairs
+% by the Green's function only for the chosen emitter-receiver pair
 h6 = figure;
 % Green's for the object inside water and including absorption
-plot(1/(2*pi) * omega, phase_approximated_receiver , 'r');hold on;
+plot(1/(2*pi) * omega, phase_approximated_receiver, 'r');hold on;
 % Green's for only water
 plot(1/(2*pi) * omega, phase_approximated_water_receiver, 'g-.');hold on;
 % k-Wave for the object inside water and including absorption
@@ -942,7 +1017,7 @@ if para.save_plots
     saveas(h5, [plot_directory, 'signal_breast_amplitude'...
         para.shot_angles    '.tiff']);
     saveas(h5, [plot_directory, 'signal_breast_amplitude'...
-        para.shot_angles    '.eps'], 'epsc');hold off;
+        para.shot_angles    '.eps'], 'epsc'); hold off;
     
     saveas(h6, [plot_directory, 'signal_breast_phase'...
         para.shot_angles  '.fig']);
@@ -951,7 +1026,7 @@ if para.save_plots
     saveas(h6, [plot_directory, 'signal_breast_phase'...
         para.shot_angles  '.tiff']);
     saveas(h6, [plot_directory, 'signal_breast_phase'...
-        para.shot_angles  '.eps'], 'epsc');hold off;
+        para.shot_angles  '.eps'], 'epsc'); hold off;
     
 end
 
@@ -1001,7 +1076,11 @@ switch para.shot_angles
         if para.deconvolve_source
             axis([0 256 0 0.8]);
         else
+            switch dim
+                case 2
             axis([0 256 0 0.02]);
+                case 3
+            end
         end
     case 'even-spaced-angle'
         axis([0 256 0 0.05]);
@@ -1014,25 +1093,23 @@ if para.save_plots
         case 'raylinking'
             switch para.emitter_index
                 case 1
-                    saveas(h7, [plot_directory, 'Fig_6a' '.fig' ]);
-                    saveas(h7, [plot_directory, 'Fig_6a' '.png' ]);
-                    saveas(h7, [plot_directory, 'Fig_6a' '.tiff']);
-                    saveas(h7, [plot_directory, 'Fig_6a' '.eps' ], 'epsc');hold off;
+                    saveas(h7, [plot_directory, 'Fig_3b' '.fig' ]);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.png' ]);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.tiff']);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.eps' ], 'epsc');hold off;
                 case 33
-                    saveas(h7, [plot_directory, 'Fig_6b' '.fig' ]);
-                    saveas(h7, [plot_directory, 'Fig_6b' '.png' ]);
-                    saveas(h7, [plot_directory, 'Fig_6b' '.tiff']);
-                    saveas(h7, [plot_directory, 'Fig_6b' '.eps' ], 'epsc');hold off;
+                    saveas(h7, [plot_directory, 'Fig_3b' '.fig' ]);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.png' ]);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.tiff']);
+                    saveas(h7, [plot_directory, 'Fig_3b' '.eps' ], 'epsc');hold off;
             end
         case 'even-spaced-angle'
-            saveas(h7, [plot_directory, 'Fig_10b' '.fig' ]);
-            saveas(h7, [plot_directory, 'Fig_10b' '.png' ]);
-            saveas(h7, [plot_directory, 'Fig_10b' '.tiff']);
-            saveas(h7, [plot_directory, 'Fig_10b' '.eps' ], 'epsc');hold off;
+            saveas(h7, [plot_directory, 'Fig_3d' '.fig' ]);
+            saveas(h7, [plot_directory, 'Fig_3d' '.png' ]);
+            saveas(h7, [plot_directory, 'Fig_3d' '.tiff']);
+            saveas(h7, [plot_directory, 'Fig_3d' '.eps' ], 'epsc');hold off;
     end
 end
-
-
 
 %% ========================================================================
 % PLOT THE PHASE FOR THE CHOSEN EMITTER
@@ -1050,7 +1127,7 @@ phase_measured_emitter = wrapToPi(angle(signal_measured{ind_emitter}(:, frequenc
 % For these prticular receiver indices, we shift the phase of the measured signals 
 % (simulated by k-Wave) by -2pi or +2pi, with sign opposite to the sign of the
 % phase.
-discontinuity_indices =  find(abs(phase_approximated_emitter - phase_measured_emitter)> 1);
+discontinuity_indices = find(abs(phase_approximated_emitter - phase_measured_emitter)> 1);
 
 % shift the phase of the measured signals (simulated by k-Wave) by -2pi or +2pi
 phase_measured_emitter(discontinuity_indices) =...
@@ -1081,21 +1158,21 @@ if para.save_plots
         case 'raylinking'
             switch para.emitter_index
                 case 1
-                    saveas(h8, [plot_directory, 'Fig_5a'  '.fig' ]);
-                    saveas(h8, [plot_directory, 'Fig_5a'  '.png' ]);
-                    saveas(h8, [plot_directory, 'Fig_5a'  '.tiff']);
-                    saveas(h8, [plot_directory, 'Fig_5a'  '.eps' ], 'epsc');hold off;
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.fig' ]);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.png' ]);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.tiff']);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.eps' ], 'epsc');hold off;
                 case 33
-                    saveas(h8, [plot_directory, 'Fig_5b'  '.fig' ]);
-                    saveas(h8, [plot_directory, 'Fig_5b'  '.png' ]);
-                    saveas(h8, [plot_directory, 'Fig_5b'  '.tiff']);
-                    saveas(h8, [plot_directory, 'Fig_5b'  '.eps' ], 'epsc');hold off;
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.fig' ]);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.png' ]);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.tiff']);
+                    saveas(h8, [plot_directory, 'Fig_3a'  '.eps' ], 'epsc');hold off;
             end
         case 'even-spaced-angle'
-            saveas(h8, [plot_directory, 'Fig_10a' '.fig' ]);
-            saveas(h8, [plot_directory, 'Fig_10a' '.png' ]);
-            saveas(h8, [plot_directory, 'Fig_10a' '.tiff']);
-            saveas(h8, [plot_directory, 'Fig_10a' '.eps' ], 'epsc');hold off;
+            saveas(h8, [plot_directory, 'Fig_3c' '.fig' ]);
+            saveas(h8, [plot_directory, 'Fig_3c' '.png' ]);
+            saveas(h8, [plot_directory, 'Fig_3c' '.tiff']);
+            saveas(h8, [plot_directory, 'Fig_3c' '.eps' ], 'epsc');hold off;
     end
 end
 

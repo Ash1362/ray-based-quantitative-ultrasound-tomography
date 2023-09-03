@@ -71,8 +71,8 @@ startup_simulation_ust;
 %%=========================================================================
 % THE INPUTS WHICH CAN BE ADJUSTED BY THE USER
 %==========================================================================
-% get the number of dimensions of the grid
-dim = 3;
+% get the number of dimensions of the grid, which can be set 2 or 3
+dim = 2;
 
 % choose the criterion for testing ray tracing algorithms. this criterion
 % can be set '1' or '2'
@@ -124,7 +124,7 @@ gridtoray_spacing_power_display = 0;
 if save_results
     
     % get the directory for the results
-    results_directory = 'simulation/results_paper/fish_eye/';
+    results_directory = 'results/simulation/fish_eye/';
     
     % make the directory for the results, if it does not exist
     makeDir(results_directory);

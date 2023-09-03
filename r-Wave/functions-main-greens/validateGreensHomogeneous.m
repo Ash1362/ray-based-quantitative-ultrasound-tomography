@@ -174,6 +174,14 @@ end
 distance_emitter_receivers = calculateDistanceEmitterReceiver(...
     emitter.positions(:, para.emitter_index), receiver.positions, []);
 
+% get the time delays
+time_delays = 1/sound_speed_water * distance_emitter_receivers;
+
+% make the distances empty for 2D case, but keep it for computing Green's
+% function for 3D case
+if dim == 2
+    distance_emitter_receivers = [];
+end
 
 %%=========================================================================
 % GET THE SIMULATED AND APPROAXIMTED SIGNALS FOR THE CHOSEN EMITTER
@@ -187,9 +195,7 @@ signal_measured_water_emitter = data_water(:, :, para.emitter_index);
 % all the receivers. The pressure times series are approximated using the
 % analytical Green's function.
 signal_approximated_water_emitter = approxPressureGreens(pressure_source,...
-    1/sound_speed_water * distance_emitter_receivers, 1, 0,...
-    0,  omega, 1.4, 'analytic', 'normal');
-
+    time_delays, 1, 0, 0,  omega, 1.4, distance_emitter_receivers, 'normal');
 
 if para.deconvolve_source
     
@@ -295,6 +301,7 @@ if length(omega) > 1
     % function (blue)
     h3 = figure;plot(1/(2*pi) * omega, 1/pressure_source_max * abs(signal_approximated_water_receiver), 'g-.',...
         1/(2*pi) * omega, 1/pressure_source_max * abs(signal_measured_water_receiver), 'b--');
+    
     axis([0, 1.1 * f_max, 1.1/pressure_source_max * min(abs(signal_approximated_water_receiver)),...
         1.1/pressure_source_max * max(abs(signal_approximated_water_receiver))]);
     xlabel('Frequency [Hz]'); ylabel('Amplitude [a.u.]');
@@ -320,17 +327,17 @@ if length(omega) > 1
     xlabel('Frequency [Hz]'); ylabel('Phase [\pi rad]');
     legend('Greens', 'k-Wave');set(gca, 'FontSize', 12);
    
-    if para.save_plots
+    if 0 % para.save_plots
         
-        saveas(h3, [plot_directory, 'Fig_3a' '.fig' ]);
-        saveas(h3, [plot_directory, 'Fig_3a' '.png' ]);
-        saveas(h3, [plot_directory, 'Fig_3a' '.tiff' ]);
-        saveas(h3, [plot_directory, 'Fig_3a' '.eps' ], 'epsc');
+        saveas(h3, [plot_directory, 'Fig_2c' '.fig' ]);
+        saveas(h3, [plot_directory, 'Fig_2c' '.png' ]);
+        saveas(h3, [plot_directory, 'Fig_2c' '.tiff' ]);
+        saveas(h3, [plot_directory, 'Fig_2c' '.eps' ], 'epsc');
         
-        saveas(h4, [plot_directory, 'Fig_3b' '.fig' ]);
-        saveas(h4, [plot_directory, 'Fig_3b' '.png' ]);
-        saveas(h4, [plot_directory, 'Fig_3b' '.tiff' ]);
-        saveas(h4, [plot_directory, 'Fig_3b' '.eps' ], 'epsc');
+        saveas(h4, [plot_directory, 'Fig_2d' '.fig' ]);
+        saveas(h4, [plot_directory, 'Fig_2d' '.png' ]);
+        saveas(h4, [plot_directory, 'Fig_2d' '.tiff' ]);
+        saveas(h4, [plot_directory, 'Fig_2d' '.eps' ], 'epsc');
         
     end
     

@@ -140,7 +140,7 @@ startup_simulation_ust;
 do_data_sim = true;
 
 
-% get the Boolean controlling whether the plots are saved or not
+% get the Boolean controlling whether the plots are saved or not.
 % This Boolean determines whether the plots associated with validation
 % of the Green's approach in homogeneous or heterogeneous medium is stored
 % or not.
@@ -186,7 +186,7 @@ purpose = 'raytracing_validation';
 % Green's function for homogeneous and heterogeneus media (phase and
 % amplitude plots for the pressure field on all the receivers.)
 % For emitters 1 and 20, the stored data is available in zenodo.
-emitter_index = 1; % 20
+emitter_index = 1;   
 
 % get the receiver index for validation of the ray approximation to the
 % Green's function for homogeneous and heterogeneus media (phase and amplitude plot
@@ -206,19 +206,14 @@ excit_pulse_name = 'Pammoth_1';
 % get the cfl number to be used for time spacing for the k-Wave simulations
 cfl_number = 0.1;
 
-% the temporal downsampling rate used for (partially) avoiding an inverse crime
-% in the time spacing. (Note that because this study uses two inherently different
-% approaches for data simulation and image reconstruction, the inverse
-% crime is not the case, but the author still considered these points (avoiding
-% inverse crime for time sampling, grid psacing, realsitic pressure source,...) for
-% making the study reliable as much as possible.)
+% the temporal downsampling rate 
 time_downsampling_rate = 2;
 
 % get the Boolean controlling whether the pressure source is deconvolved
 % from the pressure time series or not. The presure time series are not
 % deconvolved from the source, when the purpose is validation of ray
 % tracing, because the plan is compare the amplitudes simlated using the
-% k-Wave and approximated using teh Green's formula on the receivers,.
+% k-Wave and approximated using the Green's formula on the receivers,.
 deconvolve_source = false;
 
 % Boolean controlling whether the time-of-flights are computed from simulated
@@ -226,10 +221,6 @@ deconvolve_source = false;
 % validation of ray tracing, not image reconstruction, this parameter must
 % be set false.
 do_calculate_tofs = false;
-
-% get the ray-to-grid and grid-to-ray interpolation approach for
-% time-of-flight-based image reconstruction approach
-gridtoray_interp_tof = 'Bspline';
 
 % get the number of receivers
 num_receiver = 2^8;
@@ -244,18 +235,9 @@ grid_spacing_data = 4e-4;   %   (Default : 4e-4)
 % included or not
 do_absorption = true;
 
-% get the number of linearised problems (outer iterations) for
-% reconstructing an image from the time of flights. (Note that the number
-% of iterations for reconstructing the optimal image is 12-15, but for
-% providing an initial guess for the Green's approach, only few iterations
-% of the 'sart' algorithm (simulateneous algebraic reconstruction algorithm)
-% is sufficient for providing an image accurate enough and with minimal artefact.
-num_iterout_tof = 5;
-
 % the approach for interpolation of the pressure field from the
 % emitters to grid points and from grid points to receivers.
-% Using 'offgrid', the offgrid toolbox is used. (c.f. reference [5]
-% in the description of the script.)
+% Using 'offgrid', the offgrid toolbox is used. 
 transducer_interp_approach = 'offgrid';
 
 % get the downsampling rate for the emitters
@@ -264,22 +246,12 @@ emitter_downsampling_rate = 1;
 % get the downsampling rate for the receivers
 receiver_downsampling_rate = 1;
 
-
-% get the ratio of te number of receivers to the number of emitters
+% get the ratio of te number of receivers to emitters
+% It is not used when scenario is set 'single_emitter'.
 ratio_receiver_to_emitter = 4;
 
-% get the approach for linearisation. This cab be 'absolute' or
-% 'difference'. The latter is deprecated.
-linearisation_approach = 'absolute';
-
-% get the appproach for solving each linearised subproblem. Using a
-% lineraisation using the 'absloute' approach, the arisng linearised
-% subproblems can be solved using the 'sart' or 'conjuge_gradient'
-% algorithm.
-linear_subproblem_method = 'sart';
-
-% the approach fpr computing the geomterical attenuation, auxiliary: using
-% auxiliary rays, or 'raylinked' (linked rays without using auxiiary rays)
+% the approach for computing the geometrical attenuation, auxiliary: using
+% auxiliary rays, or 'raylinked' (linked rays without using auxiliary rays)
 attenuation_geom_method = 'auxiliary';
 
 % the approach for tracing auxiliary rays, which will be used for computing
@@ -290,7 +262,7 @@ auxiliary_method = 'paraxial';
 if save_plots
     
     % get the directory for saving the plots
-    plot_directory = 'simulation/results/plot_greens/';
+    plot_directory = 'results/simulation/plot_greens/';
     
     % make the directory for saving the plots, if it does not exist
     makeDirectory(plot_directory);
@@ -318,14 +290,11 @@ data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spaci
     'do_calculate_tofs', do_calculate_tofs};
 
 
-% if the puropose is validation of ray tracing, the clean data (without noise) is
-% used.
-[data, data_ref, ~, ~, emitter, receiver, kgrid,...
-    medium, simulation_prop, data_simulation_time] =...
-    simulateSettingData(do_data_sim, dim, scenario,...
-    purpose, excit_pulse_name, half_grid_size, num_receiver,...
-    ratio_receiver_to_emitter, do_absorption, oa_breast_path, machine_name,...
-    res_path, local_res_path, data_args{:});
+% if the puropose is validation of ray tracing, the noise-free data is used.
+[data, data_ref, ~, ~, emitter, receiver, simulation_prop, data_simulation_time] =...
+    simulateSettingData(do_data_sim, dim, scenario, purpose, excit_pulse_name,...
+    half_grid_size, num_receiver, ratio_receiver_to_emitter, do_absorption,...
+    oa_breast_path, machine_name, res_path, local_res_path, data_args{:});
 
 
 %%==================================================================
@@ -340,8 +309,8 @@ greens_hom_args = {'emitter_index', 1, 'receiver_index', receiver_index,...
 % by the Green's function and k-Wave, on the receivers (or single receiver)
 % after being produced by a single emitter and propgating through only water
 [relative_discrepancy_signal_water_emitter, relative_discrepancy_signal_water_receiver] = ...
-    validateGreensHomogeneous(data_ref, kgrid.t_array, emitter, receiver,...
-    medium.sound_speed_ref, simulation_prop.f_max, plot_directory, greens_hom_args{:});
+    validateGreensHomogeneous(data_ref, simulation_prop.t_array, emitter, receiver,...
+    simulation_prop.sound_speed_ref, simulation_prop.f_max, plot_directory, greens_hom_args{:});
 
 %%=================================================================
 % COMPARE THE GREEN'S FUNCTION AND K-WAVE FOR HETEROGENEOUS
@@ -363,14 +332,18 @@ greens_het_args = {'num_worker_pool', num_worker_pool, 'emitter_index',...
 [ray_position, ray_time, ray_absorption, ray_position_left, ray_position_right,...
     adjoint_ray_position_left, adjoint_ray_position_right, ray_spacing,...
     rayspacing_receiver, relative_discrepancy_absorbing, relative_discrepancy_nonabsorbing] =...
-    validateGreensHeterogeneous(data, data_ref, kgrid.t_array, emitter, receiver,...
-    kgrid, medium, simulation_prop, [], plot_directory, greens_het_args{:});
+    validateGreensHeterogeneous(data, data_ref, simulation_prop.t_array, emitter, receiver,...
+    simulation_prop, [], plot_directory, greens_het_args{:});
 
 %%=================================================================
 % DISPLAY THE RAYS AFTER VALIDATION OF RAY TRACING
 %==================================================================
+
+
 % get the optional inputs
-display_args = {'save_plots', false, 'emitter_index', emitter_index,...
+% emitter index must be set  zero, because emitter.positions now includes
+% only the position of one emitter.
+display_args = {'save_plots', save_plots, 'emitter_index', 1,...
     'receiver_index', receiver_index};
 
 % display the forward ray initialised from a single emitter and

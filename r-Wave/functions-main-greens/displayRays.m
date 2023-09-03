@@ -240,6 +240,7 @@ ray_time_receiver = ray_time_receiver(~nan_binary_adjoint);
 %%=========================================================================
 % DISPLAY THE TIME DELAYS ALONG THE FORWARD RAYS
 %==========================================================================
+
 h1= figure();
 
 % display the sampled points on the main rays for the chosen emitter
@@ -252,22 +253,28 @@ scatter(emitter_positions(1, emitter_index),...
     emitter_positions(2, emitter_index), 50, 'g', 'filled'); hold on;
 if strcmp(attenuation_geom_method, 'auxiliary')
 hold on;
+
+% display the left auxiliary ray
 scatter(vectorise(ray_position_x_left_emitter),...
     vectorise(ray_position_y_left_emitter), 5, 'g');
 hold on;
+
+% display the right auxiliary ray
 if strcmp(auxiliary_method, 'angle_perturbation')
 scatter(vectorise(ray_position_x_right_emitter),...
     vectorise(ray_position_y_right_emitter), 5, 'b');
 end
-end
-axis image;
 
-title('The sampled main forward rays. The auxiliary ray is shown by green.')
+end
+axis image; axis off;
+disp(['Displaying the sampled main forward rays.'...
+    'The auxiliary rays are shown by the green color.'])
 set(gca, 'Fontsize', 12); colorbar;
 
 % add colorbar 
 a = colorbar;
 ylabel(a, 'Time [s]');
+
 
 if para.save_plots
 saveas(h1, [plot_directory, 'emitter_time_delays' '.fig']);
@@ -289,13 +296,18 @@ scatter(vectorise(ray_position_x_receiver),...
 % display the sampled points on the auxiliary adjoint rays for the chosen receiver
 if strcmp(attenuation_geom_method, 'auxiliary')
 hold on;
+
+% display the left auxiliary ray
 scatter(vectorise(ray_position_x_left_receiver),...
     vectorise(ray_position_y_left_receiver), 5, 'g');
 hold on;
+
+% display the right auxiliary ray
 if strcmp(auxiliary_method, 'angle_perturbation')
 scatter(vectorise(ray_position_x_right_receiver),...
     vectorise(ray_position_y_right_receiver), 5, 'b');
 end
+
 end
 hold on;
 
@@ -306,9 +318,9 @@ hold on;
 % display the receiver
 scatter(receiver_positions(1, receiver_index),...
     receiver_positions(2, receiver_index), 50, 'r', 'filled'); hold on;
-axis image;
+axis image; axis off;
 
-title('The sampled main and auxiliary adjoint rays. The auxiliary ray is shown by green.')
+disp('Displaying the sampled main and auxiliary adjoint rays. The auxiliary rays are shown by green.')
 
 % add colorbar 
 a = colorbar;
@@ -317,7 +329,7 @@ ylabel(a, 'Time [s]');
 set(gca, 'Fontsize', 12);
 
 
-if para.save_plots
+if  para.save_plots
 saveas(h2, [plot_directory, 'receiver_time_delays' '.fig']);
 saveas(h2, [plot_directory, 'receiver_time_delays' '.png']);
 saveas(h2, [plot_directory, 'receiver_time_delays' '.tiff']);

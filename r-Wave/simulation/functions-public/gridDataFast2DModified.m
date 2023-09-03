@@ -60,7 +60,10 @@ nan_grid_binary = ~isnan(t);
 
 % get the indices of the points on which the interpolation is done
 indices = repmat((1:nnz(nan_grid_binary))', 1, 3);
+
 % get the barycebtric coordinates for the vertices of the triangle (voxel)
 bc = bc(nan_grid_binary, :);
+
 % get the vertices of the triangle (voxel)
 tri = tri(t(nan_grid_binary), :);
+end

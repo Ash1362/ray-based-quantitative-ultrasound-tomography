@@ -61,13 +61,20 @@ function [jacobian_matrix] = calcRayJacobian(solve_ray, polar_initial_direction,
      perturbed_polar_initial_direction(ind) = polar_initial_direction(ind) + h;
 
      
-     [~, ~, ~, perturbed_polar_ditrection_endpoint] = feval(solve_ray,...
-         perturbed_polar_initial_direction, [], false);
-     perturbation =  perturbed_polar_ditrection_endpoint - polar_direction_endpoint;
+     % [~, ~, ~, perturbed_polar_ditrection_endpoint] = feval(solve_ray,...
+     %    perturbed_polar_initial_direction, [], false);
+     % perturbation =  perturbed_polar_ditrection_endpoint - polar_direction_endpoint;
      
      % the perturbation must be in range [-pi,pi] in order to ovoid
      % discontinities in transitions at -pi and +pi
-     perturbation(1) = wrapToPi(perturbation(1));
+     %  perturbation(1) = wrapToPi(perturbation(1));
+     
+     % get the perturbation to the end point of the ray
+     perturbation = feval(solve_ray,...
+         perturbed_polar_initial_direction, polar_direction_endpoint, false);
+     
+     % get a column of the Jacobian of the end point of the ray to the
+     % initial direction in the polar coordinates
      jacobian_matrix(:, ind)= perturbation/h;
  end
 

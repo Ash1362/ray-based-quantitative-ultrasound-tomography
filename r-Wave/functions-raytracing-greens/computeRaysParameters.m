@@ -10,10 +10,9 @@ function [cartesian_position_endpoint, cell_num_rays, optimal_polar_initial_dire
 %using heterogeneous Green's funtion along the rays
 %
 % DESCRIPTION:
-%       computeRaysParameters links the rays between
-%       emitter-receivers, and calculates the parameters required for
-%       approximating the pressure field using heterogeneous Green's function
-%       along the rays and on the receivers
+%       computeRaysParameters links the rays between emitter-receivers, and
+%       calculates the parameters required for approximating the pressure field
+%       using heterogeneous Green's function along the rays and on the receivers
 %
 % USAGE:
 %
@@ -147,35 +146,41 @@ para.interp_method = 'Bspline';
 para.smoothing_window_size = 7;
 para.reference_sound_speed = 1500;
 para.do_perturb_initial_position = false;
-dim = recon_grid.dim;
-switch dim
-    case 2
-        para.raytogrid_spacing = 1/2;
-        para.raylinking_method = 'Regula-Falsi';
-        para.max_iter = 500;
-        para.auxiliary_ray = false;
-        para.auxiliary_method = 'paraxial';
-        para.reference_angle = pi/(2*180);
-        para.max_num_points_factor = 1.1;
-        para.absorption_power = 1.4;
-        para.sound_speed_reference = 1500;
-        para.angular_frequency_centre = 2 * pi * 1e6;
-    case 3
-        para.raytogrid_spacing = 1;
-        para.raylinking_method = 'Quasi-Newton';
-        para.max_iter = 500;
-end
+para.auxiliary_ray = true;
+para.max_num_points_factor = 1.3;
+para.auxiliary_method = 'paraxial';
+para.max_iter = 500;
+para.absorption_power = 1.4;
+para.sound_speed_reference = 1500;
+para.angular_frequency_centre = 2 * pi * 1e6;
 para.varepsilon = 1e-6;
 para.smooth_medium = true;
 para.refractive_background = 1;
 
+% get the number of dimensions
+dim = recon_grid.dim;
+
+switch dim
+    case 2
+        
+        para.raytogrid_spacing = 1/2;
+        para.raylinking_method = 'Regula-Falsi';
+        para.reference_angle = pi/(2*180);
+        
+    case 3
+        
+        para.raytogrid_spacing = 1;
+        para.raylinking_method = 'Quasi-Newton';
+        
+end
+
 if(~isempty(varargin))
     for input_index = 1:2:length(varargin)
+        
         % add to parameter struct (or overwrite fields)
         para.(varargin{input_index}) = varargin{input_index + 1};
     end
 end
-
 
 % start the run time
 start_time = tic;
@@ -183,19 +188,140 @@ start_time = tic;
 % the number of emitters
 num_emitter = size(cartesian_position_allemitters, 2);
 
-% the number of receivers
+% the setting for position of the transducers: fixed or rotational
 if iscell(cartesian_position_allreceivers)
-    
-    % placement of the transducers in a rotational setting
-    num_receiver = size(cartesian_position_allreceivers{1}, 2);
+    if isempty(rotation_indices)
+        error('For a rotation setting, the rotation indices of the emitters must be specified.');
+    end
+    transducer_positions_setting = 'rotational';
 else
-    % placement of the trasnducers in a fixed setting
-    num_receiver = size(cartesian_position_allreceivers, 2);
+    transducer_positions_setting = 'fixed';
 end
 
 
-% the radius of emission/detection surface
-detection_radius = norm(cartesian_position_allemitters(:,1));
+
+%%=========================================================================
+% GET THE DETECTION GEOMTERY
+%==========================================================================
+% allocate an empty variable for detection geometry
+detec_geom = [];
+
+
+if strcmp(transducer_positions_setting, 'fixed')
+    
+    % change the number of receivers from matrix to cell array
+    cartesian_position_allreceivers = mat2cell(cartesian_position_allreceivers,...
+        size(cartesian_position_allreceivers, 1),...
+        size(cartesian_position_allreceivers, 2));
+    
+end
+
+% get the number of the receivers
+num_receiver = size(cartesian_position_allreceivers{1}, 2);
+
+if num_receiver < 3
+    error('The number of receivers for each position must be at least 3.')
+end
+
+% get the radius of the detection surface (if circle or hemi-sphere)
+radius1 = norm(cartesian_position_allreceivers{1}(:, 1));
+radius2 = norm(cartesian_position_allreceivers{1}(:, 2));
+radius3 = norm(cartesian_position_allreceivers{1}(:, 3));
+
+% check if the detection surface is circle or hemi-sphere
+if abs(radius1 - radius2)< 1e-10  && abs(radius1 - radius3)< 1e-10
+    
+    % get the radius [m] of the detection surface, if it is circular or
+    % hemi-spaherical
+    detec_geom.radius_circle = radius1;
+    
+else
+    
+    if dim == 3
+        
+        % get the radius of the detection surface (if circle or hemi-sphere)
+        radius1 = norm(cartesian_position_allreceivers{1}(1:2, 1));
+        radius2 = norm(cartesian_position_allreceivers{1}(1:2, 2));
+        radius3 = norm(cartesian_position_allreceivers{1}(1:2, 3));
+        
+    end
+    
+    if dim == 3  && abs(radius1 - radius2)< 1e-10   &&   abs(radius1 - radius3)< 1e-10
+        
+        % get the radius [m] of the detection surface, if it is cylinder
+        % (2.5D)
+        detec_geom.radius_cylinder = radius1;
+        
+    else
+        
+        % get the slope of the detection surface (if linear or planar)
+        slope1 = (cartesian_position_allreceivers{1}(2, 2)- cartesian_position_allreceivers{1}(2, 1))./...
+            (cartesian_position_allreceivers{1}(1, 2)- cartesian_position_allreceivers{1}(1, 1));
+        
+        slope2 = (cartesian_position_allreceivers{1}(2, end)- cartesian_position_allreceivers{1}(2, end-1))./...
+            (cartesian_position_allreceivers{1}(1, end)- cartesian_position_allreceivers{1}(1, end-1));
+        
+        
+        if abs(slope1-slope2) < 1e-10 || all(isinf([slope1, slope2]))
+            
+            
+            % get the number of angular positions
+            if isempty(rotation_indices)
+                num_pos = 1;
+            else
+                num_pos = length(unique(rotation_indices));
+            end
+            
+            % get the coefficients [a,b,c] for the line ax+by=c, where
+            % c= -slope*x_0+y_0 with (x_0, y_0) a point on the line
+            detec_geom = cell(num_pos, 1);
+            
+
+            for ind_pos = 1: num_pos
+                
+                % get the slope of the detection surface (if linear or planar)
+                slope1 = (cartesian_position_allreceivers{ind_pos}(2, 2)- cartesian_position_allreceivers{ind_pos}(2, 1))./...
+                    (cartesian_position_allreceivers{ind_pos}(1, 2)- cartesian_position_allreceivers{ind_pos}(1, 1));
+                
+                if isinf(slope1)
+                    
+                    % get the coefficient of the linear or planar
+                    % detection surface along x-y plane in the form of
+                    % ax+by=c with a=1, y=0, c=x_0
+                    detec_geom{ind_pos}.line_coeff = [1, 0,...
+                        cartesian_position_allreceivers{ind_pos}(1, 1)];
+                    
+                else
+                    
+                    % get the coefficient of the linear or planar
+                    % detection surface along x-y plane in the form of
+                    % ax + by = c with a = -slope, b = 1 and c=
+                    % -slope * x_0 + y_0 with (x_0, y_0) a point on the line
+                    detec_geom{ind_pos}.line_coeff = [-slope1, 1,...
+                        -slope1 * cartesian_position_allreceivers{ind_pos}(1, 1) + ...
+                        cartesian_position_allreceivers{ind_pos}(2, 1)];
+                end
+                
+            end
+            
+        end
+        
+    end
+    
+end
+
+
+if strcmp(transducer_positions_setting, 'fixed')
+    
+    % change the number of receivers from cell array to matrix
+    cartesian_position_allreceivers = cell2mat(cartesian_position_allreceivers);
+    
+    % change detec_geom from cell array to matrix
+    if iscell(detec_geom)
+        detec_geom = cell2mat(detec_geom);
+    end
+    
+end
 
 
 % get the grid spacing
@@ -209,7 +335,7 @@ xvec = recon_grid.x_vec;
 yvec = recon_grid.y_vec;
 
 % the cartesian position of starting and the ending grid points
-pos_grid_first  = [xvec(1); yvec(1)];
+pos_grid_first = [xvec(1); yvec(1)];
 pos_grid_end = [xvec(end); yvec(end)];
 
 % extend the grid size and Cartesian coordinates to 3D
@@ -231,6 +357,7 @@ if do_absorption
     % convert dB MHz^{-y} cm^{-1} to nepers (rad/s)^{-y} m^{-1}
     absorption_coeff = db2neper(absorption_coeff, para.absorption_power);
     
+    % get the nonsmoothed refractive index
     refractive_nonsmoothed = refractive .* (1 + absorption_coeff .* para.sound_speed_reference./refractive...
         .* tan(pi * para.absorption_power/2) * para.angular_frequency_centre^(para.absorption_power-1) );
     
@@ -244,8 +371,7 @@ end
 
 if length(unique(refractive_nonsmoothed(:)))>1
     
-    %  apply smoothing on the refractive index distribution, if the
-    %  medium is heterogeneous
+    %  smooth the refractive index distribution, if the medium is heterogeneous
     if para.smoothing_window_size > 3.99
         refractive = smoothField(refractive_nonsmoothed,...
             para.smoothing_window_size, para.refractive_background);
@@ -296,29 +422,8 @@ end
 % the grid spacing is set the same for all Cartesian coordinates.
 ray_spacing = para.raytogrid_spacing * grid_spacing;
 
-
-
-% allocate a variable for parameters reuired for ray tracing
-ray_fields_params = [];
-
-switch para.interp_method
-    
-    case {'Bspline'}
-        indices_vec = [-1; 0; 1; 2];
-        switch dim
-            case 2
-                ray_fields_params.raytogrid_indices_x = vectorise(repmat(indices_vec, [1, 4]));
-                ray_fields_params.raytogrid_indices_y = vectorise(repmat(indices_vec.', [4, 1]));
-                ray_fields_params.raytogrid_indices_z = [];
-            case 3
-                ray_fields_params.raytogrid_indices_x = vectorise(repmat(indices_vec, [1, 4, 4]));
-                ray_fields_params.raytogrid_indices_y = vectorise(repmat(indices_vec.', [4, 1, 4]));
-                ray_fields_params.raytogrid_indices_z = vectorise(repmat(permute(indices_vec, [2 3 1]),...
-                    [4, 4, 1]));
-        end
-        
-        
-end
+% allocate a struct for interpolation parameters
+ray_interp_coeffs = [];
 
 
 switch para.interp_method
@@ -326,48 +431,76 @@ switch para.interp_method
     
     case 'Bilinear'
         
-        ray_fields_params.refractive_gradient_x = refractive_gradient_x;
-        ray_fields_params.refractive_gradient_y = refractive_gradient_y;
-        ray_fields_params.refractive_gradient_z = refractive_gradient_z;
+        % get the directional gradients of the refractive index
+        ray_interp_coeffs.refractive_gradient_x = refractive_gradient_x;
+        ray_interp_coeffs.refractive_gradient_y = refractive_gradient_y;
+        ray_interp_coeffs.refractive_gradient_z = refractive_gradient_z;
         
     case 'Bspline'
         
-        % cubic Bspline based on Denis et al, Ultrasonic Transmission
-        % Tomography in Refracting Media: Reduction of Refraction Artifacts
-        % by Curved-Ray Techniques, IEEE TRANS MED IMAG, 14 (1), 1995.
-        % the coefficients for the interpolation of the function
-        ray_fields_params.raytogrid_coeff_matrix = 1/6 * [-1, 3,-3, 1;...
+        % get the indices of the grid points included in the
+        % Bspline interpolation with respect to the ray's point
+        % (off-grid point)
+        indices_vec = [-1; 0; 1; 2];
+        switch dim
+            case 2
+                ray_interp_coeffs.raytogrid_indices_x = vectorise(repmat(indices_vec, [1, 4]));
+                ray_interp_coeffs.raytogrid_indices_y = vectorise(repmat(indices_vec.', [4, 1]));
+                ray_interp_coeffs.raytogrid_indices_z = [];
+            case 3
+                ray_interp_coeffs.raytogrid_indices_x = vectorise(repmat(indices_vec, [1, 4, 4]));
+                ray_interp_coeffs.raytogrid_indices_y = vectorise(repmat(indices_vec.', [4, 1, 4]));
+                ray_interp_coeffs.raytogrid_indices_z = vectorise(repmat(permute(indices_vec, [2 3 1]),...
+                    [4, 4, 1]));
+        end
+        
+        
+        % get the coefficient of the polynomials for interpolation of the refractive
+        % index
+        ray_interp_coeffs.raytogrid_coeff_matrix = 1/6 * [-1, 3,-3, 1;...
             3,-6, 0, 4;...
             -3, 3, 3, 1;...
             1, 0, 0, 0];
-        % the coefficients for the interpolation of the first derivative of the function
-        ray_fields_params.raytogrid_coeff_derivative_matrix = 1/(6*grid_spacing) * [-3, 6, -3;...
+        
+        
+        % get the coefficient of the polynomials for interpolation of the first-order
+        % gradient of the refractive index
+        ray_interp_coeffs .raytogrid_coeff_derivative_matrix = 1/(6*grid_spacing) * [-3, 6, -3;...
             9,-12, 0;...
             -9,  6, 3;...
             3,  0, 0];
         
-        % the coefficients for the interpolation of the second derivative of the function
-        ray_fields_params.raytogrid_coeff_second_derivative_matrix = 1/(6*grid_spacing^2) *[-6, 6;...
+        
+        % get the coefficient of the polynomials for interpolation of the second-order
+        % gradient of the refractive index
+        ray_interp_coeffs.raytogrid_coeff_second_derivative_matrix = 1/(6*grid_spacing^2) *[-6, 6;...
             18,-12;...
             -18, 6;...
             6, 0];
         
 end
 
-
-num_points = ceil(2*para.max_num_points_factor*detection_radius/ray_spacing)+1;
+% estimate the maximum number of rays' points for forming the matrices for
+% storing the accumulated parameters along the rays
+if isfield(detec_geom, 'radius_circle')
+    num_points = ceil(2 * para.max_num_points_factor * detec_geom.radius_circle/ray_spacing) ;
+elseif isfield(detec_geom, 'radius_cylinder')
+    num_points = ceil(2 * para.max_num_points_factor * detec_geom.radius_cylinder/ray_spacing);
+else
+    error('Not implemented yet!')
+end
+    
 
 % allocate a cell array for the optimal polar initial directions, which are
 % the polar initial directions of the linked rays
-optimal_polar_initial_direction = cell(num_emitter, 1);
-
+optimal_polar_initial_direction = cell(1, num_emitter);
 
 % allocate a cell array for the cartesian position of the end point of the
 % linked (optimal) rays
-cell_cartesian_position_endpoint = cell(num_emitter, 1);
+cell_cartesian_position_endpoint = cell(1, num_emitter);
 
 % allocate a cell array for the maximum number of rays for ray linking
-cell_num_rays = cell(num_emitter, 1);
+cell_num_rays = cell(1, num_emitter);
 
 % allocate a cell array for the Cartesian position of the points along the
 % rays
@@ -393,24 +526,22 @@ adjoint_cartesian_position_auxiliary_left = cell(1, num_emitter);
 % right
 adjoint_cartesian_position_auxiliary_right = cell(1, num_emitter);
 
-
 % allocate a cell array for the last spacing along the ray
-rayspacing_receivers = cell(num_emitter, 1);
+rayspacing_receivers = cell(1, num_emitter);
 
 % define ahandle function for ray linking and construction of the system
 % matrix for each single emitter
 calc_parameters = @(cartesian_position_emitter, polar_direction_allreceivers,...
-    polar_initial_direction_allreceivers, position_receivers) rayLinkFullWave(ray_fields_params,...
+    polar_initial_direction_allreceivers, position_receivers, detec_geom) rayLinkFullWave(ray_interp_coeffs,...
     refractive, refractive_nonsmoothed, absorption_coeff, cartesian_position_emitter,...
     position_receivers, polar_direction_allreceivers,...
     polar_initial_direction_allreceivers, xvec, yvec, zvec, pos_grid_first, pos_grid_end,...
-    grid_spacing, ray_spacing, grid_size, dim, detection_radius, mask, num_points, para);
-
-
+    grid_spacing, ray_spacing, grid_size, dim, detec_geom, mask, num_points, para);
 
 
 parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
-      %   for ind_emitter = 1:num_emitter % (for test)
+       %  for ind_emitter = 1:num_emitter % (for test)
+       
     disp( ['Number of emitter:'  num2str(ind_emitter)] )
     
     % the cartesian position of the emitter
@@ -423,6 +554,7 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
         % a dim x num_receiver matrix for each individual emitter
         
         if ~isempty(rotation_indices)
+            
             % get the index of rotation associated with the emitter
             ind_rot = rotation_indices(ind_emitter);
         else
@@ -433,7 +565,6 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
         % of receivers is separate for each 'ind_rot' (index of rotation)
         cartesian_position_allreceivers_singleemitter = cartesian_position_allreceivers{ind_rot};
         
-        
     else
         
         % if the detection geometry is 'fixed', the matrix of position of
@@ -441,8 +572,9 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
         cartesian_position_allreceivers_singleemitter = cartesian_position_allreceivers;
         
     end
-    % calculate the cartesian direction of geomterical vectors from the
-    % emitter under study to the receivers
+    
+    % calculate the cartesian direction of geometrical vectors from the
+    % current emitter to the receivers
     cartesian_direction_allreceivers = cartesian_position_allreceivers_singleemitter...
         - cartesian_position_emitter;
     
@@ -503,6 +635,21 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
     end
     
     
+    % get the detec_geom, which defines the stopping criteria for the rays
+    % based on the position of receivers, for the current emitter
+    if iscell(detec_geom)
+        
+        % get the receiver geometry for the current emitter
+        detec_geom_pos = detec_geom{ind_rot};
+        
+    else
+        
+        % get the fixed receiver geometry
+        % note that the setting can be rotational, but detec_geom
+        % be fixed.
+        detec_geom_pos = detec_geom;
+    end
+    
     
     % get the rays' parameters
     [optimal_polar_initial_direction{ind_emitter},...
@@ -511,10 +658,8 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
         cartesian_position_auxiliary_left{ind_emitter}, cartesian_position_auxiliary_right{ind_emitter},...
         adjoint_cartesian_position_auxiliary_left{ind_emitter}, adjoint_cartesian_position_auxiliary_right{ind_emitter}]...
         = feval(calc_parameters, cartesian_position_emitter, polar_direction_allreceivers,....
-        polar_initial_direction_allreceivers, cartesian_position_allreceivers_singleemitter);
-    
-    
-    
+        polar_initial_direction_allreceivers, cartesian_position_allreceivers_singleemitter,...
+        detec_geom_pos);
     
     % calculate the time delays along the ray from the acoustic
     % lengths divided by the reference (water) sound speed
@@ -532,14 +677,13 @@ parfor (ind_emitter = 1 : num_emitter, para.nworker_pool)
         
     end
     
-    
-    
     % display the number of receivers for which the end point of the ray
     % does not match the position of the receivers uisng the maximum permissible numer of iteration
     % note that the end point of a bad linked ray may be very close to the
     % receiver. also note that emitter and receiver are assumed emission and reception points,
     % respectively.
     disp(['The number of bad linkings:'  num2str(nnz(cell_num_rays{ind_emitter} > para.max_iter-1))])
+    
 end
 
 
@@ -548,12 +692,8 @@ if strcmp(para.raylinking_method, 'Regula-Falsi')
 end
 
 
-
-
 cartesian_position_endpoint = cell2mat(cell_cartesian_position_endpoint);
 clear cell_cartesian_position_endpoint
-
-
 
 
 % the whole run time for construction of the system matrix

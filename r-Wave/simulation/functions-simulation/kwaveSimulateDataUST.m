@@ -1,14 +1,15 @@
-function [pressure_out, pressure_out_binary, data_paths, elapsed_time] = kwaveSimulateDataUST(kgrid, medium, ...
-    emitter, receiver, interp, data_paths, varargin )
+function [pressure_out, pressure_out_binary, data_paths, elapsed_time] = ...
+    kwaveSimulateDataUST(kgrid, medium, emitter, receiver_positions, interp,...
+    data_paths, varargin)
 %KWAVESIMULATEDATA is a wrapper for calling kWave for simulation of data for
 %UST imaging
 %
 % DESCRIPTION:
 %        kwaveSimulateDataUSCT implements the k-Wave pseudo-spectral time domain
 %        method using the k-Wave toolbox for simulating the pressure time series
-%        used for UST imaging. k-Wave simulations are sequentially run by excitation of emaitters. 
-%        If the code type is set 'Matlab', a number of simulations are parallelized
-%        on different threads by a single call of function. The function
+%        used for UST imaging. k-Wave simulations are sequentially run by excitation
+%        of emitters. If the code type is set 'Matlab', a number of simulations are
+%        parallelized on different threads by a single call of function. The function
 %        automatically shares the excitations (emitters) over the threads using
 %        a parloop. However, if the simulations are run using high
 %        performance codes, i.e. 'C++' or 'CUDA', a simultaneous simulation 
@@ -37,7 +38,7 @@ function [pressure_out, pressure_out_binary, data_paths, elapsed_time] = kwaveSi
 %       emitter.positions  - 2/3 x N array of Cartesian points containing the centers of
 %                            the emitter objects
 %       emitter.pulse      - the excitational pulse
-%       receiver.positions - 2/3 x N array of Cartesian points containing the centers of
+%       receiver_positions - 2/3 x N array of Cartesian points containing the centers of
 %                            the receiver objects
 %       interp.emitters    - a struct containing the interpolation optional parameters
 %                            corresponding to the emitters. This contains
@@ -107,13 +108,14 @@ function [pressure_out, pressure_out_binary, data_paths, elapsed_time] = kwaveSi
 % =========================================================================
 % CHECK INPUT STRUCTURES AND OPTIONAL INPUTS
 % =========================================================================
-% get dimensions
-dim  = kgrid.dim;
+% get the number of dimensions
+dim = kgrid.dim;
+
 % set k-Wave default optional_paramsmeter
 optional_params = [];
-optional_params.savetodisk   = 1;
-optional_params.data_cast     = 'single';
-optional_params.code_type = 'Matlab';
+optional_params.savetodisk = 1;
+optional_params.data_cast  = 'single';
+optional_params.code_type  = 'Matlab';
 optional_params.num_worker_hdf5  = 4;
 optional_params.num_worker_data  = 4;
 optional_params.gpu_index = 0;
@@ -144,16 +146,25 @@ optional_params= rmfield(optional_params, rm_fields);
 ts = tic;
 
 % get the number of emitters 
-num_emitter  = size(emitter.positions, 2);
+num_emitter = size(emitter.positions, 2);
+
 % get the number of receivers
-num_receiver = size(receiver.positions, 2);
+num_receiver = size(receiver_positions, 2);
+
 % get the size of the grid
 grid_size = size(kgrid.x);
+
 % get indices associated with the binary mask for emitters
 emitter_indices = find(interp.emitter.mask);
+
 % get the interpolation matrix for emitters
 if strcmp(code_type, 'CUDA')
     
+    % the chosen gpu order (1-based number of gpu) cannot be larger than the total number of
+    % workers (gpus) 
+    optional_params.num_worker_data = max(optional_params.num_worker_data,...
+        optional_params.gpu_order);
+         
     % if CUDA is used, the emitters are shared between gpus using multiple
     % main scripts. All the main scripts are the same, except for the 
     % input of gpu_index, which indicates the number of a single gpu
@@ -162,14 +173,14 @@ if strcmp(code_type, 'CUDA')
     
     
     % get the number of emitters per worker
-    num_emitter_per_worker = round(num_emitter/optional_params.num_worker_data);
-         
-    if  num_emitter_per_worker > 0   && rem(num_emitter, optional_params.num_worker_data) ~= 0   
+    num_emitter_per_worker = num_emitter/optional_params.num_worker_data;
+    
+    if num_emitter_per_worker >= 1   &&   rem(num_emitter, optional_params.num_worker_data) ~= 0   
         error(['The number of emitters must be a natural factor of the number of the computational threads,'...
             'if the number of emitters are larger than the number of threads.'])
     else
     
-    if num_emitter_per_worker == 0 
+    if num_emitter_per_worker < 1
         split_emitters_indices = (1:num_emitter)';
     else
         % choose the emitters using the index of the used gpu
@@ -179,12 +190,13 @@ if strcmp(code_type, 'CUDA')
         % the n-th column corresponds to the n-th gpu
         split_emitters_indices = total_emitters_matrix(:, optional_params.gpu_order);
     end
-    
-
-    % choose the position of emitters corresponding the gou order
+   
+    % choose the position of emitters corresponding the gpu order
     emitter.positions = emitter.positions(:, split_emitters_indices);
+    
     % the interpolation matrix for the chosen emitters
     emitter_matrix = interp.emitter.matrix(split_emitters_indices, :);
+    
     % get the number of chosen emitters
     num_emitter = size(emitter.positions, 2);
     
@@ -337,9 +349,9 @@ if ismember(optional_params.savetodisk, [0, 1])
         
         switch data_cast
             case 'single'
-                pressure_out(:, :, emitter_index) =  single(receiver_matrix * double(pressure_on_mask));
+                pressure_out(:, :, emitter_index) = single(receiver_matrix * double(pressure_on_mask));
             case'double'
-                pressure_out(:, :, emitter_index) =  receiver_matrix * double(pressure_on_mask);
+                pressure_out(:, :, emitter_index) = receiver_matrix * double(pressure_on_mask);
         end
        
         

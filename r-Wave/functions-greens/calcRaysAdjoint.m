@@ -87,7 +87,7 @@ function [ray_position_adjoint, ray_time_adjoint, ray_absorption_adjoint,...
 % ABOUT:
 %       author          - Ashkan Javaherian
 %       date            - 23.08.2020
-%       last update     - 14.01.2023
+%       last update     - 14.04.2023
 %
 % This script is part of the r-Wave Tool-box
 % Copyright (c) 2022 Ashkan Javaherian 
@@ -118,12 +118,9 @@ else
     else
         auxiliary_method = 'angle_perturbation';
     end
-    
-    
+     
 end
 
-
-    
 
 % get the number of emitters
 num_emitter = length(ray_position);
@@ -134,16 +131,41 @@ num_receiver = size(ray_time{1}, 1);
 % get the maximum number of points along the rays
 num_maxraypoint = size(ray_position{1}, 2);
 
+% get the number of dimensions
+dim = rem(size(ray_position{1}, 1), 2) + 2;
+
+if dim == 3 && strcmp(auxiliary_method, 'angle_perturbation')
+    error(['For the 3D case, the auxiliary rays cannot be traced with perturbing the'...
+        'initial angles, but must be traced using the paraxial approach.'])
+end
+
+if dim == 3 && strcmp(attenuation_geom_method, 'raylinked')
+    error(['For the 3D case, the geomterical attenuation cannot be computed'...
+        'using only linked rays, and auxiliary rays must be traced using the paraxial approach.'])
+end
+    
 % allocate cell arrays for storing the Cartesian position and time delays 
 % along the reversed rays
+% x position
 ray_position_x_adjoint = cell(1, num_emitter);
+% y position
 ray_position_y_adjoint = cell(1, num_emitter);
+
+if dim == 3
+    
+    % z position
+    ray_position_z_adjoint = cell(1, num_emitter);
+end
+
+% accumulated time delays
 ray_time_adjoint = cell(1, num_emitter);
+
+% accumulated acoustic absorption
 ray_absorption_adjoint = cell(1, num_emitter);
 
-
-% Include acoustic absorption (and dispersion), or not 
+% determine acoustic absorption (and dispersion) are included or not 
 do_absorption = ~isscalar(ray_absorption{1});
+
 if ~do_absorption
 ray_absorption_adjoint = cell(1, num_receiver);
 for ind_receiver = 1: num_receiver
@@ -154,24 +176,40 @@ end
 
 % allocate cell arrays for storing the Cartesian position along the reversed auxiliary rays
 if strcmp(attenuation_geom_method, 'auxiliary')
-ray_position_x_left_adjoint = cell(1, num_emitter) ;
-ray_position_y_left_adjoint =  cell(1, num_emitter);
+    
+    % x position
+    ray_position_x_left_adjoint = cell(1, num_emitter);
+    
+    % y position
+    ray_position_y_left_adjoint = cell(1, num_emitter);
+    
+    if dim == 3
+        
+        % z position
+        ray_position_z_left_adjoint = cell(1, num_emitter);
+    end
+    
     
 
 if strcmp(auxiliary_method, 'angle_perturbation')
     
     % if the method used for tracing auxiliary rays is 'paraxial', the right
-    % auxiliary rays are not given
+    % auxiliary rays are not given, but if the used method for tracing
+    % auxiliary rays is 'angle_perturbation', the right auxiliary ray must
+    % also be given,
     ray_position_x_right_adjoint = cell(1, num_emitter);
     ray_position_y_right_adjoint = cell(1, num_emitter);
+    
+       
+end
+    
 end
 
-end
+
 
 
 %parfor (ind_emitter  = 1 : num_emitter , para.num_worker)
- for ind_emitter = 1:num_emitter   
-
+for ind_emitter = 1:num_emitter   
 
 % get the nans (check to make sure the command line is true!)
 nan_binary = isnan(ray_time{ind_emitter});
@@ -200,12 +238,19 @@ column_ascending_orders = ~nan_binary .* column_ascending_orders;
 interp_coeff = rayspacing_receiver{ind_emitter}./ray_spacing;
 
 % reverse the x position 
-ray_position_x_adjoint{ind_emitter} = reverseRayParameter(ray_position{ind_emitter}(1:2:end, :),...
+ray_position_x_adjoint{ind_emitter} = reverseRayParameter(ray_position{ind_emitter}(1:dim:end, :),...
     interp_coeff, receiver_indices, nan_binary, false);
 
 % reverse the y position 
-ray_position_y_adjoint{ind_emitter} = reverseRayParameter(ray_position{ind_emitter}(2:2:end, :),...
+ray_position_y_adjoint{ind_emitter} = reverseRayParameter(ray_position{ind_emitter}(2:dim:end, :),...
     interp_coeff, receiver_indices, nan_binary, false);
+
+if dim == 3
+    
+    % reverse the z position
+    ray_position_z_adjoint{ind_emitter} = reverseRayParameter(ray_position{ind_emitter}(3:dim:end, :),...
+        interp_coeff, receiver_indices, nan_binary, false);
+end
 
 % reverse the accumulated time delays
 ray_time_adjoint{ind_emitter} = reverseRayParameter(ray_time{ind_emitter},...
@@ -222,20 +267,28 @@ end
 % convert the cells for the parameters the rays to a three dimensional matrix
 ray_position_x_adjoint = cell2mat(permute(ray_position_x_adjoint, [1, 3, 2]));
 ray_position_y_adjoint = cell2mat(permute(ray_position_y_adjoint, [1, 3, 2]));
+
+if dim == 3
+    ray_position_z_adjoint = cell2mat(permute(ray_position_z_adjoint, [1, 3, 2]));
+end
+
 ray_time_adjoint = cell2mat(permute(ray_time_adjoint, [1, 3, 2]));
 
-ray_position_adjoint = zeros(2*num_emitter, num_maxraypoint, num_receiver);
+ray_position_adjoint = zeros(dim*num_emitter, num_maxraypoint, num_receiver);
 
 % change the order of the dimensions of matrices to num_emitter x num_raypoints x
 % num_receiver, because for calculation of the adjoint fields, the emitters
 % and receivers are interchenged
-ray_position_adjoint(1:2:end, :,:) = permute(ray_position_x_adjoint, [3, 2, 1]);
-ray_position_adjoint(2:2:end, :,:) = permute(ray_position_y_adjoint, [3, 2, 1]);
+ray_position_adjoint(1:dim:end, :,:) = permute(ray_position_x_adjoint, [3, 2, 1]);
+ray_position_adjoint(2:dim:end, :,:) = permute(ray_position_y_adjoint, [3, 2, 1]);
+if dim == 3
+    ray_position_adjoint(3:dim:end, :,:) = permute(ray_position_z_adjoint, [3, 2, 1]);
+end
 ray_time_adjoint = permute(ray_time_adjoint, [3, 2, 1]);
 
 % convert the three dimensional matrices for the position of points on the main rays to cell arrays
-% with num_receiver cells corresponding to the excitations for the adjoint field
-ray_position_adjoint = squeeze(mat2cell(ray_position_adjoint, 2*num_emitter,...
+% with num_receiver cells corresponding to the implicit excitations for the adjoint field
+ray_position_adjoint = squeeze(mat2cell(ray_position_adjoint, dim * num_emitter,...
     num_maxraypoint, ones(num_receiver, 1)) );  
 ray_time_adjoint = squeeze(mat2cell(ray_time_adjoint, num_emitter,...
     num_maxraypoint, ones(num_receiver, 1)) );
@@ -243,7 +296,7 @@ ray_time_adjoint = squeeze(mat2cell(ray_time_adjoint, num_emitter,...
 if do_absorption
     ray_absorption_adjoint = cell2mat(permute(ray_absorption_adjoint, [1, 3, 2]));
     ray_absorption_adjoint = permute(ray_absorption_adjoint, [3, 2, 1]);
-    ray_absorption_adjoint = squeeze( mat2cell(ray_absorption_adjoint, num_emitter,...
+    ray_absorption_adjoint = squeeze(mat2cell(ray_absorption_adjoint, num_emitter,...
         num_maxraypoint, ones(num_receiver, 1)) );
 end
 
@@ -254,46 +307,62 @@ switch attenuation_geom_method
     
     case 'auxiliary'
         
-        
 %parfor (ind_emitter  = 1 : num_emitter , para.num_worker)         
 for ind_emitter = 1 : num_emitter
     
 % rearrange the left auxiliary ray for the adjoint field
 
 % get the x position of the points on the left auxiliary rays
-ray_position_x_left_adjoint{ind_emitter} = ray_position_left{ind_emitter}(1:2:end, :);
+ray_position_x_left_adjoint{ind_emitter} = ray_position_left{ind_emitter}(1:dim:end, :);
 % get the y position of the points on the left auxiliary rays
-ray_position_y_left_adjoint{ind_emitter} = ray_position_left{ind_emitter}(2:2:end, :);
+ray_position_y_left_adjoint{ind_emitter} = ray_position_left{ind_emitter}(2:dim:end, :);
+
+if dim == 3
+    
+    % get the z position of the points on the left auxiliary rays
+    ray_position_z_left_adjoint{ind_emitter} = ray_position_left{ind_emitter}(3:dim:end, :);
+end
 
 if strcmp(auxiliary_method, 'angle_perturbation')
 
 % get the position of the points on the right auxiliary rays in the Cartesian
 % coordinates
-ray_position_x_right_adjoint{ind_emitter} = ray_position_right{ind_emitter}(1:2:end, :);
-ray_position_y_right_adjoint{ind_emitter} = ray_position_right{ind_emitter}(2:2:end, :);
+ray_position_x_right_adjoint{ind_emitter} = ray_position_right{ind_emitter}(1:dim:end, :);
+ray_position_y_right_adjoint{ind_emitter} = ray_position_right{ind_emitter}(2:dim:end, :);
 end
-
 
 
 end
       
-% convert the cells for the parameters the rays to a three dimensional matrix
-ray_position_x_left_adjoint = cell2mat(permute(ray_position_x_left_adjoint, [1, 3, 2])); 
+% convert the cells for the parameters of the adjoint rays to a three dimensional matrix
+% x cartesian position
+ray_position_x_left_adjoint = cell2mat(permute(ray_position_x_left_adjoint, [1, 3, 2]));
+
+% y cartesian position
 ray_position_y_left_adjoint = cell2mat(permute(ray_position_y_left_adjoint, [1, 3, 2]));
 
+if dim == 3
+    
+   % z cartesian position
+   ray_position_z_left_adjoint = cell2mat(permute(ray_position_z_left_adjoint, [1, 3, 2])); 
+end
+
 % allocate zero matrices for the position on the rays
-ray_position_left_adjoint = zeros(2*num_emitter, num_maxraypoint, num_receiver);
+ray_position_left_adjoint = zeros(dim * num_emitter, num_maxraypoint, num_receiver);
 
 
 % change the order of the dimensions of matrices to num_emitter x num_raypoints x
 % num_receiver, because for computing the adjoint fields, the emitters and receivers 
 % are swapped
-ray_position_left_adjoint(1:2:end, :,:) = squeeze(permute(ray_position_x_left_adjoint, [3, 2, 1]));
-ray_position_left_adjoint(2:2:end, :,:) = squeeze(permute(ray_position_y_left_adjoint, [3, 2, 1]));
-
-% convert the three dimensional matrices for the position of points on the auxiliary rays to cell arrays
-% with num_receiver cells corresponding to the excitations for the adjoint field
-ray_position_left_adjoint = squeeze( mat2cell(ray_position_left_adjoint, 2*num_emitter,...
+ray_position_left_adjoint(1:dim:end, :,:) = squeeze(permute(ray_position_x_left_adjoint, [3, 2, 1]));
+ray_position_left_adjoint(2:dim:end, :,:) = squeeze(permute(ray_position_y_left_adjoint, [3, 2, 1]));
+if dim == 3
+    ray_position_left_adjoint(3:dim:end, :,:) = squeeze(permute(ray_position_z_left_adjoint, [3, 2, 1]));
+end
+    
+% convert the three dimensional matrices for the position of points on the left auxiliary rays to cell arrays
+% with num_receiver cells corresponding to the implicit excitations for the adjoint field
+ray_position_left_adjoint = squeeze(mat2cell(ray_position_left_adjoint, dim * num_emitter,...
     num_maxraypoint, ones(num_receiver, 1)) ); 
 
 
@@ -302,39 +371,33 @@ switch auxiliary_method
     case 'angle_perturbation'
 
         
-        % do for the right auxiliary rays the same as for the left auxiliary
+        % repeat the procedure for the right auxiliary rays the same as for the left auxiliary
         % rays
         ray_position_x_right_adjoint = cell2mat(permute(ray_position_x_right_adjoint, [1, 3, 2]));
         ray_position_y_right_adjoint = cell2mat(permute(ray_position_y_right_adjoint, [1, 3, 2]));
         
-        ray_position_right_adjoint = zeros(2*num_emitter, num_maxraypoint, num_receiver);
+        ray_position_right_adjoint = zeros(dim * num_emitter, num_maxraypoint, num_receiver);
         
-        ray_position_right_adjoint(1:2:end, :,:) = squeeze(permute(ray_position_x_right_adjoint, [3, 2, 1]));
-        ray_position_right_adjoint(2:2:end, :,:) = squeeze(permute(ray_position_y_right_adjoint, [3, 2, 1]));
+        ray_position_right_adjoint(1:dim:end, :,:) = squeeze(permute(ray_position_x_right_adjoint, [3, 2, 1]));
+        ray_position_right_adjoint(2:dim:end, :,:) = squeeze(permute(ray_position_y_right_adjoint, [3, 2, 1]));
         
         
-        ray_position_right_adjoint = squeeze( mat2cell(ray_position_right_adjoint, 2*num_emitter,...
+        % convert the three dimensional matrices for the position of points on the right auxiliary rays to cell arrays
+        % with num_receiver cells corresponding to the implicit excitations for the adjoint field
+        ray_position_right_adjoint = squeeze(mat2cell(ray_position_right_adjoint, dim *num_emitter,...
             num_maxraypoint, ones(num_receiver, 1)) );
 
-
-
     case 'paraxial'
-     
-        
+       
         ray_position_right_adjoint = cell(1, num_receiver);
 
 end
-
-
 
     case 'raylinked'
       
 ray_position_left_adjoint = cell(1, num_receiver);
 ray_position_right_adjoint = cell(1, num_receiver);
-
-    
+ 
 end
-
-
 
 end

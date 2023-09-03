@@ -120,9 +120,6 @@ if isfinite(window_length(4))
 end
 
 
-%% ========================================================================
-% Apply a filter in frequency domain
-% signal = applyFilter(signal, 1/dt, cutoff_freq, 'BandPass', 'ZeroPhase', true);
 
 
 
@@ -139,15 +136,16 @@ if window_threshold
     signal_envelope = abs(signal); 
     
     % truncate the envelope of the signal using the starting and ending indices
-    % that are calculated above
-    signal_envelope  = signal_envelope(time_index_start : time_index_end);
+    % which are calculated above
+    signal_envelope = signal_envelope(time_index_start : time_index_end);
     
-    % find the first index of the windowed envelope of the signal
-    % that exceeds a threshold in amplitude
+    % find the first index of the time windowed envelope after which the
+    % signal is larger the chosen fraction of the maximum absolute amplitude 
     ixm = find(signal_envelope/max(signal_envelope)>window_threshold, 1, 'first');
     
-    % shift the index for accounting for the truncated part
+     % shift the index for getting the time index with respect to time origin
     ixm = ixm + time_index_start - 1;
+    
 end
 
 % normalise the amplitude of the signal
@@ -346,15 +344,18 @@ switch para.Method
         
         if window_threshold
             
-            % find a minimum and maximum index for a window for the first-arrival
-            % the end point is ixm, and the starting point is not changed.
-              time_index_end = ixm;
+            % find the minimum and maximum indices for the time window for finding
+            % the minimum AIC. The end point is ixm, and the starting point is
+            % ixm - length_back.
+            time_index_start = max (1, ixm - length_back);
+            time_index_end = ixm;
+            
         end
         
-        % truncate the time array using the selected window
+        % truncate the time array for the chosen window
         t_array_window = t_array(time_index_start:time_index_end);
         
-        % allocate a vector for AIC values
+        % allocate a vector for Akaike-Information-Criterion (AIC)
         AIC = zeros(size(t_array_window));
         
         % get the length of the window for computing the AIC valuse
@@ -367,21 +368,21 @@ switch para.Method
             AIC(i) = k*log(variance_noise) + (length_signal-1-k)*log(variance_signal);
         end
         
-        % calculate the minimal AIC value within the time window
+        % calculate the minimum AIC within the time window
         [AICm, ixm] = min(AIC);
         
-        % select the short window for section of first arrival
+        % select the short window for picking the first arrival
         indices =  max(1, ixm - length_short): min(length_window, ixm + length_short);
         
-        % calculate the exponal discrepancy of the AIC for the data
-        % within the time window indicated by indices and the calculated minimum AIC
+        % compute the exponential of discrepancy of the AIC and the calculated minimum AIC
+        % in the chosen short time window about the minimum AIC
         exponal_discrepancy_akaike = exp(-(AIC(indices)-AICm)/2);
         
         % calculate the Akaike weights for each data sample within the time window
         weights = exponal_discrepancy_akaike/sum(exponal_discrepancy_akaike);
         
         % calculate a weighted average TOF using the Akaike weights
-        tof = weights*t_array_window(indices)';
+        tof = weights * t_array_window(indices)';
         
     case 'AR_AIC'
         

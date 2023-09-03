@@ -137,10 +137,10 @@ matrix_construction_method = 'bent-ray';
 
 % choose the approach used for ray tracing for image reconstruction using
 % time-of-flight data. This can be set: 1)'Mixed-step', 2)'Dual-update',
-% 3)'Characteristics', or 4)'Runge-kutta-2nd'. (default:'Mixeds-step')
+% 3)'Characteristics', or 4)'Runge-kutta-2nd'. (default:'Mixed-step')
 % The 'Mixed-step' algorithm is quite fast, and was used for implementation
 % on the Pammoth system.
-raytracing_method_tof = 'Mixed-step';
+raytracing_method_tof = 'Runge-kutta-2nd';  
 
 % get the numer of workers for parallel programming
 % the user may want to change the number of workers.
@@ -163,6 +163,17 @@ receiver_downsampling_rate = 2;
 % reconstructed using the time-of-flight-based or Green's approach are
 % saved or not.
 save_results = false;
+
+% get the ray-to-grid and grid-to-ray interpolation approach for
+% time-of-flight-based image reconstruction approach. this can be set
+% 'Bilinear' or 'Bspline'
+gridtoray_interp_tof = 'Bspline';
+
+% get the appproach for solving each linearised subproblem. Using a
+% lineraisation using the 'absloute' approach, the arisng linearised
+% subproblems can be solved using the 'sart' or 'conjuge_gradient'
+% algorithm.
+linear_subproblem_method = 'sart';
 
 %%=========================================================================
 % THE FIXED PARAMETERS, THE PARAMETERS WHICH MUST NOT BE CHANGED BY THE
@@ -253,10 +264,6 @@ cfl_number = 0.1;
 % making the study reliable as much as possible.)
 time_downsampling_rate = 2;
 
-% get the ray-to-grid and grid-to-ray interpolation approach for
-% time-of-flight-based image reconstruction approach
-gridtoray_interp_tof = 'Bspline';
-
 % get the number of receivers
 num_receiver = 2^12;
 
@@ -271,32 +278,22 @@ grid_spacing_data = 5e-4;
 % included or not
 do_absorption = false;
 
-
 % get the approach for interpolation of the pressure field from the
 % emitters to grid points and from grid points to receivers.
 % Using 'offgrid', the offgrid toolbox is used. (c.f. reference [5]
 % in the description of the script.)
 transducer_interp_approach = 'nearest';
 
-
 % get the ratio of te number of receivers to the number of emitters
 ratio_receiver_to_emitter = 4;
 
-% get the approach for linearisation. This cab be 'absolute' or
-% 'difference'. The latter is deprecated.
+% get the approach for linearisation. This can only be set 'absolute'.
 linearisation_approach = 'absolute';
-
-% get the appproach for solving each linearised subproblem. Using a
-% lineraisation using the 'absloute' approach, the arisng linearised
-% subproblems can be solved using the 'sart' or 'conjuge_gradient'
-% algorithm.
-linear_subproblem_method = 'sart';
-
 
 if save_results
     
     % get the directory for saving the mat results
-    results_directory = 'simulation/results/mat_3D_tofs/';
+    results_directory = 'results/simulation/3D/';
     
     % make the directory, if it does not exist
     makeDirectory(results_directory);
@@ -308,11 +305,14 @@ else
     
 end
 
-% get the optional inputs for defining the settings for simulation using the k-Wave
-% (and simulating (or loading) the pressure data sets using the k-Wave
-% toolbox.) Because do_calculate_tofs is set false, this function is used
-% for only defing the simulation settings corresponding to the
-% Time-of-flight data.
+%%=================================================================
+% SIMULATE PRESSURE UST DATA SETS USING K-WAVE OR GET THE SETTINGS
+% OF THE SIMULATION
+%==================================================================
+% get the optional inputs for defining the settings which are already set
+% for simulating the pressure data sets using the k-Wave. Because do_calculate_tofs
+% is set false, this function is used for only reproducing the simulation settings
+% corresponding to the stored Time-of-flight data.
 data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spacing_data,...
     'grid_spacing_reconstruction', grid_spacing_reconstruction, 'cfl', cfl_number,...
     'transducer_interp_approach', transducer_interp_approach,...
@@ -321,14 +321,10 @@ data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spaci
     'do_calculate_tofs', do_calculate_tofs, 'noise_level', noise_level};
 
 
-%%=================================================================
-% SIMULATE PRESSURE UST DATA SETS USING K-WAVE OR GET THE SETTINGS
-% OF THE SIMULATION
-%==================================================================
 % if the purpose is image reconstruction, the noise-contaminated
 % data is used.
-[~, ~, data_noisy, data_ref_noisy, emitter, receiver, kgrid,...
-    medium, simulation_prop, data_simulation_time] =...
+[~, ~, data_noisy, data_ref_noisy, emitter, receiver, simulation_prop,...
+    data_simulation_time] =...
     simulateSettingData(do_data_sim, dim, scenario,...
     purpose, excit_pulse_name, half_grid_size, num_receiver,...
     ratio_receiver_to_emitter, do_absorption, oa_breast_path, machine_name,...
@@ -352,13 +348,18 @@ reconst_args_tof = {'num_worker_pool', num_worker_pool,...
     'emitter_downsampling_rate', emitter_downsampling_rate,...
     'receiver_downsampling_rate', receiver_downsampling_rate};
 
+
+if ~do_calculate_tofs
+    simulation_prop.t_array = [];
+end
+
+
 % load the time-of-flight data from the directory for storing data and
 % reconstruct the sound speed image iteratively from the time-of-flight data
 [img_tof, recon_grid, ~, ray_initial_angles, out_tof, para_tof] = ...
     reconstructTimeofFlightImage(data_noisy, data_ref_noisy,...
-    kgrid.t_array, emitter, receiver, medium.sound_speed_ref,...
-    simulation_prop.z_offset, kgrid, medium.sound_speed,...
-    simulation_prop.data_path,...
+    simulation_prop.t_array, emitter, receiver, simulation_prop.sound_speed_ref,...
+    simulation_prop, simulation_prop.data_path,...
     reconst_args_tof{:});
 
 if save_results

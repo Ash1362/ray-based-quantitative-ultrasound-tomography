@@ -1,18 +1,18 @@
 function [optimal_polar_initial_direction_allreceivers,...
     cartesian_position_endpoint_allreceivers, num_rays_allreceivers, ray_positions_allreceivers,...
-    acoustic_length_allreceivers, absorption_allreceivers, rayspacing_allreceivers, ray_positions_auxilary_left_allreceivers,...
-    ray_positions_auxilary_right_allreceivers, adjoint_ray_positions_auxilary_left_allreceivers,...
-    adjoint_ray_positions_auxilary_right_allreceivers] = rayLinkFullWave(ray_fields_params,...
-    refractive, refractive_nonsmoothed, absorption_coeff, cartesian_position_emitter,...
-    cartesian_position_receivers, polar_direction_allreceivers,...
+    acoustic_length_allreceivers, absorption_allreceivers, rayspacing_allreceivers,...
+    ray_positions_auxilary_left_allreceivers, ray_positions_auxilary_right_allreceivers,...
+    adjoint_ray_positions_auxilary_left_allreceivers, adjoint_ray_positions_auxilary_right_allreceivers] =...
+    rayLinkFullWave(ray_interp_coeffs, refractive, refractive_nonsmoothed, absorption_coeff,...
+    cartesian_position_emitter, cartesian_position_receivers, polar_direction_allreceivers,...
     polar_initial_direction_allreceivers, xvec, yvec, zvec, pos_grid_first,...
-    pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_radius,...
+    pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_geom,...
     mask, num_points, para)
 %RSAYLINKFULLWAVE links the rays between a single emitter and all reeivers
 %
 % DESCRIPTION:
 %           rayLinkFullWave links the rays emenated from a single emitter to
-%           all receivers, and stores all the information correspinding to the
+%           all receivers, and stores all the information corresponding to the
 %           the linked rays. The ray linking is done iteratively often using a
 %           given initial guess, or alternatively using straight rays
 
@@ -20,7 +20,7 @@ function [optimal_polar_initial_direction_allreceivers,...
 %
 %
 % INPUTS:
-%       ray_fields_params      - a struct containing the specified variables for ray tracing
+%       ray_interp_coeffs    - a struct containing the specified variables for ray tracing
 %                              using a 'Bilinear' intrerpolation, this includes the directional
 %                              gradients of the refrective index
 %                              distribution
@@ -39,10 +39,10 @@ function [optimal_polar_initial_direction_allreceivers,...
 %                                 gradientsof the field
 %       refractive             - the smoothed dispersive refractive index used for
 %                                computing the trajectory of rays
-%       refractive_nonsmoothed - the nonsmoothed refractive index used
-%                                for integration of the parameters along the
-%                                linked rays
-%       absorption_coeff        - the absorption coefficient matrix
+%       refractive_nonsmoothed - the nonsmoothed refractive index matrix used
+%                                for integration along the linked rays
+%       absorption_coeff       - the nonsmoothed absorption coefficient matrix
+%                                used for integration along the linked rays
 %       cartesian_position_emitter - a dim x 1 cartesian position of the emitter
 %       cartesian_position_receivers - a dim x num_receiver cartesian
 %                                       position of all receivers
@@ -147,64 +147,37 @@ function [optimal_polar_initial_direction_allreceivers,...
 % coefficient map is nonzero
 do_absorption = ~isscalar(absorption_coeff);
 
-
 % number of receivers
 num_receiver = size(polar_direction_allreceivers, 2);
 
-
-% a binary vector, which is true when the distances of the emeitter to
+% a binary vector, which is true when the distance of the emitter to
 % receivers are sufficiently large
-binary_distances = vecnorm(cartesian_position_receivers - cartesian_position_emitter) >  0; 
+binary_distances = vecnorm(cartesian_position_receivers - cartesian_position_emitter) >  0;
 
-
-
-switch para.interp_method
-    case 'Bilinear'
-        
-        Error(['For the greens approach, the grid to ray interpolation must be'...
-            'done using the Bspline approach.'])
-        % get the directional gradient fields
-        refractive_gradient_x = ray_fields_params.refractive_gradient_x;
-        refractive_gradient_y = ray_fields_params.refractive_gradient_y;
-        refractive_gradient_z = ray_fields_params.refractive_gradient_z;
-        
-        % allocate empty variables for parameters for spline interpolation
-        raytogrid_indices_x = [];
-        raytogrid_indices_y = [];
-        raytogrid_indices_z = [];
-        raytogrid_coeff_matrix = [];
-        raytogrid_coeff_derivative_matrix = [];
-        
-    case {'Bspline'}
-                
-        % get parameters for spline interpolation
-        raytogrid_indices_x = ray_fields_params.raytogrid_indices_x;
-        raytogrid_indices_y = ray_fields_params.raytogrid_indices_y;
-        raytogrid_indices_z = ray_fields_params.raytogrid_indices_z;
-        raytogrid_coeff_matrix = ray_fields_params.raytogrid_coeff_matrix;
-        raytogrid_coeff_derivative_matrix = ray_fields_params.raytogrid_coeff_derivative_matrix;
-        raytogrid_coeff_second_derivative_matrix = ray_fields_params.raytogrid_coeff_second_derivative_matrix ;
-end
-
+%%=========================================================================
+% ALLOCATE VECTORS/MATRICES FOR STORING THE INFORMATION FOR ALL RECEIVERS
+%==========================================================================
 
 % the polar initial direction of the linked rays
 optimal_polar_initial_direction_allreceivers = zeros(dim-1, num_receiver);
 
-% allocate matrices for storing the information from ray linking
 % the cartesian position of the end point of the linked rays
 cartesian_position_endpoint_allreceivers = zeros(dim, num_receiver);
 
-% allocate a vector for the number of traced rays for ray linking
-% between the vector and each of the receivers
+% the number of traced rays for ray linking the emitter to each of the receivers
 num_rays_allreceivers = zeros(num_receiver, 1);
 
-% % allocate a vector for the last spacing along the ray with the end point
-% position of the receiver
+% the last spacing along the ray (the end point is the position of the
+% receiver.)
 rayspacing_allreceivers = zeros(num_receiver, 1);
 
-% allocate vector for poistion of time delays of ray points
-ray_positions_allreceivers = nan(dim*num_receiver, num_points);
+% position along the ray
+ray_positions_allreceivers = nan(dim * num_receiver, num_points);
+
+% the acoustic length along the ray
 acoustic_length_allreceivers = nan(num_receiver, num_points);
+
+% the accumulated acoustic absorption along the ray
 if do_absorption
     absorption_allreceivers = nan(num_receiver, num_points);
 else
@@ -212,25 +185,23 @@ else
 end
 
 
-
 if para.auxiliary_ray
     
-    % allocate matrices for the position of the auxiliary rays
+    % matrices for the position of the auxiliary rays
+    
     % forward left auxiliary ray
     ray_positions_auxilary_left_allreceivers = nan(dim * num_receiver, num_points);
     
     % adjoint left auxiliary ray
     adjoint_ray_positions_auxilary_left_allreceivers = nan(dim * num_receiver, num_points);
     
-    
-    
-    if ~ strcmp(para.auxiliary_method, 'paraxial')
+    if ~strcmp(para.auxiliary_method, 'paraxial')
         
         % forward right auxiliary ray
         ray_positions_auxilary_right_allreceivers = nan(dim * num_receiver, num_points);
+        
         % adjoint right auxiliary ray
         adjoint_ray_positions_auxilary_right_allreceivers = nan(dim * num_receiver, num_points);
-               
         
     else
         
@@ -249,24 +220,18 @@ else
     adjoint_ray_positions_auxilary_left_allreceivers = [];
     adjoint_ray_positions_auxilary_right_allreceivers = [];
     
-    
-    
+
 end
 
 % define a handle function for tracing the ray, and obtain the information
 % this function handle solves the forward problem of ray linking inverse
 % problem
 solve_ray = @(polar_initial_direction, polar_direction_receiver, calc_coeffs, auxiliary_ray)...
-    calcRayParametersBsplineFullWave(...
-    refractive, cartesian_position_emitter, polar_direction_receiver, polar_initial_direction, [], ...
-    xvec, yvec, zvec, pos_grid_first, pos_grid_end, grid_spacing, ray_spacing, ...
-    grid_size, dim, detec_radius, mask, raytogrid_indices_x, raytogrid_indices_y,...
-    raytogrid_indices_z, raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix, ...
-    raytogrid_coeff_second_derivative_matrix, refractive_nonsmoothed, absorption_coeff, calc_coeffs,...
+    calcRayLinkForwardFullWave(ray_interp_coeffs, refractive, refractive_nonsmoothed,...
+    absorption_coeff, cartesian_position_emitter, polar_direction_receiver,...
+    polar_initial_direction, xvec, yvec, zvec, pos_grid_first, pos_grid_end,...
+    grid_spacing, ray_spacing, grid_size, dim, detec_geom, mask, calc_coeffs,...
     para.raylinking_method, para.interp_method, auxiliary_ray, []);
-
-
-
 
 %% ========================================================================
 % INITIAL GUESS
@@ -274,47 +239,39 @@ solve_ray = @(polar_initial_direction, polar_direction_receiver, calc_coeffs, au
 
 % choose initial guess for the left and right polar
 % initial direction.
-        
-      if strcmp(para.raylinking_method, 'Regula-Falsi')
-                
-                % By a ray initialisation using a 'Local' approach, the left and right
-                % polar intial directions (initial interval) are chosen the same for
-                % all receivers, i.e. approximately -pi/2, +pi/2
-                % with respect to a geomterical vector from the emitter to the
-                % centre of the detection circle. Both initial angles are chosen a bit
-                % smaller in order to ensure the initial directions of the rays send the rayd
-                % inside the detection circle, approximately tangent to the periphery of the circle
-                polar_initial_direction_left  =  - pi/2 * (1 - (1/num_receiver) + para.varepsilon);
-                polar_initial_direction_right =  + pi/2 * (1 - (1/num_receiver) + para.varepsilon);
-                
-                % calculate the polar direction of unit geometrical
-                % vectors from emitter to the last point of the rays
-                % solved by the left and right polar initial directions
-                % because these two rays rae tangent to the circle,
-                % they are intercepted by the the detection surface
-                % very soon, and thus they are very short, and give
-                % a maximal range for the left and right initial
-                % directions
-                [~, ~, polar_direction_endpoint_left] = feval(solve_ray,...
-                    polar_initial_direction_left, [], false, false);
-                [~, ~, polar_direction_endpoint_right] = feval(solve_ray,...
-                    polar_initial_direction_right, [], false, false);
-                
-      end
-        
 
-
-
-
+if strcmp(para.raylinking_method, 'Regula-Falsi')
+    
+    % By a ray initialisation using a 'Local' approach, the left and right
+    % polar intial directions (initial interval) are chosen the same for
+    % all receivers, i.e. approximately -pi/2, +pi/2
+    % with respect to a geomterical vector from the emitter to the
+    % centre of the detection circle. Both initial angles are chosen a bit
+    % smaller in order to ensure the initial directions of the rays send the rayd
+    % inside the detection circle, approximately tangent to the periphery of the circle
+    polar_initial_direction_left  =  - pi/2 * (1 - (1/num_receiver) + para.varepsilon);
+    polar_initial_direction_right =  + pi/2 * (1 - (1/num_receiver) + para.varepsilon);
+    
+    % calculate the polar direction of unit geometrical
+    % vectors from emitter to the last point of the rays
+    % solved by the left and right polar initial directions
+    % because these two rays rae tangent to the circle,
+    % they are intercepted by the the detection surface
+    % very soon, and thus they are very short, and give
+    % a maximal range for the left and right initial
+    % directions
+    [~, ~, polar_direction_endpoint_left] = feval(solve_ray,...
+        polar_initial_direction_left, [], false, false);
+    [~, ~, polar_direction_endpoint_right] = feval(solve_ray,...
+        polar_initial_direction_right, [], false, false);
+    
+end
 
 
 % solve the ray linking inverse problem for each individual emitter-receiver pair
 for ind_receiver = 1 : num_receiver
     
-    
-    % avoid ray linking for a sufficiently close emitter-receiver pair,
-    % because the rays only travel through the water for
-    % this pair
+
     if binary_distances(ind_receiver)
         
         
@@ -322,20 +279,18 @@ for ind_receiver = 1 : num_receiver
             
             case 'Regula-Falsi'
                 
-                        
-                        polar_direction_initial_guess(1) = polar_initial_direction_left;
-                        polar_direction_initial_guess(2) = polar_initial_direction_right;
-                        res_initial_guess(1) = polar_direction_endpoint_left...
-                            - polar_direction_allreceivers(ind_receiver);
-                        res_initial_guess(2) = polar_direction_endpoint_right...
-                            - polar_direction_allreceivers(ind_receiver);
-         
+                polar_direction_initial_guess(1) = polar_initial_direction_left;
+                polar_direction_initial_guess(2) = polar_initial_direction_right;
+                res_initial_guess(1) = polar_direction_endpoint_left...
+                    - polar_direction_allreceivers(ind_receiver);
+                res_initial_guess(2) = polar_direction_endpoint_right...
+                    - polar_direction_allreceivers(ind_receiver);
                 
                 % calculate the path of rays using the Regula-falsi approach
                 [polar_initial_direction, cartesian_position_endpoint, num_rays,...
-                    ray_positions, ray_acoustic_length, ray_absorption, rayspacing_receiver] = solveRegulaFalsiFullWave(solve_ray,...
-                    polar_direction_allreceivers(:, ind_receiver), polar_direction_initial_guess,...
-                    res_initial_guess, para.varepsilon, para.max_iter);
+                    ray_positions, ray_acoustic_length, ray_absorption, rayspacing_receiver] =...
+                    solveRegulaFalsiFullWave(solve_ray, polar_direction_allreceivers(:, ind_receiver),...
+                    polar_direction_initial_guess, res_initial_guess, para.varepsilon, para.max_iter);
                 
                 
             case 'Secant'
@@ -357,14 +312,10 @@ for ind_receiver = 1 : num_receiver
                 
             case 'Quasi-Newton'
                 
-                % ray linking using Quasi-Newton method
-                link_args = {'Method', 'Good-Broyden', 'initial_derivative', 'finite-difference',...
-                    'smooth', true};
+                % give an error
+                error(['For 3D case, only the time-of-flight-based approach'...
+                    'is included for this code version.'])
                 
-                [polar_initial_direction, cartesian_position_endpoint, num_rays,...
-                    ray_positions, ray_acoustic_length, ray_absorption, rayspacing_receiver]=...
-                    solveQuasiNewtonFullwave(solve_ray, polar_direction_allreceivers(:, ind_receiver),...
-                    polar_initial_direction_allreceivers(:, ind_receiver), para.varepsilon, para.max_iter, [], link_args{:});
         end
         
     else
@@ -380,15 +331,14 @@ for ind_receiver = 1 : num_receiver
             polar_initial_direction = polar_initial_direction_allreceivers(:, ind_receiver);
         end
         
+        % give nan to the parameters of ray and associated Green's function
         cartesian_position_endpoint = nan;
         num_rays = 0;
         ray_positions = nan;
         ray_acoustic_length = nan;
         ray_absorption = nan;
         
-        
     end
-    
     
     
     % fill the matrix for updated polar initial direction for each receiver
@@ -417,47 +367,39 @@ for ind_receiver = 1 : num_receiver
     
     if para.auxiliary_ray
         
-        
+     
         %%=================================================================
         % CALCULATE THE FORWARD AUXILIARY RAYS
         %==================================================================
         
         % get the handle function for the forward auxiliary rays
         solve_auxiliary_ray = @(polar_initial_direction, cartesian_position_start,...
-            calc_coeffs, auxiliary_ray, rotation_matrix)...
-            calcRayParametersBsplineFullWave(...
-            refractive, cartesian_position_start, [], polar_initial_direction,...
-            rotation_matrix, xvec, yvec, zvec, pos_grid_first,...
-            pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_radius,...
-            mask, raytogrid_indices_x, raytogrid_indices_y, raytogrid_indices_z,...
-            raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix,...
-            raytogrid_coeff_second_derivative_matrix, refractive_nonsmoothed,...
-            absorption_coeff, calc_coeffs, para.raylinking_method, para.interp_method,...
-            auxiliary_ray, para.auxiliary_method);
+            calc_coeffs, auxiliary_ray, auxiliary_method)...
+            calcRayLinkForwardFullWave(ray_interp_coeffs, refractive, refractive_nonsmoothed,...
+            absorption_coeff, cartesian_position_start, [], polar_initial_direction,...
+            xvec, yvec, zvec, pos_grid_first, pos_grid_end, grid_spacing,...
+            ray_spacing, grid_size, dim, detec_geom, mask, calc_coeffs,...
+            para.raylinking_method, para.interp_method, auxiliary_ray, auxiliary_method);
         
         
         
         switch para.auxiliary_method
             case 'angle_perturbation'
                 
-                % allocate empty variable for the rotation matrices
-                rotation_matrix_left = [];
-                rotation_matrix_right = [];
-                
-                
                 % get the perturbed initial angle for the left
                 % and right auxiliary rays
                 angle_left = polar_initial_direction - para.reference_angle;
                 angle_right = polar_initial_direction + para.reference_angle;
                 
+                % calculate the position of the right auxiliary ray
+                [~, ~, ~, ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
+                    angle_left, cartesian_position_emitter, false, true,...
+                    para.auxiliary_method);
                 
                 % calculate the position of the right auxiliary ray
-                % for paraxial rays, perturbed positions, (and perturbed directions, if
-                % requested)
                 [~, ~, ~, ray_positions_auxilary_right, ~, ~, ~] = feval(solve_auxiliary_ray,...
                     angle_right, cartesian_position_emitter, false, true,...
-                    rotation_matrix_right);
-                
+                    para.auxiliary_method);
                 
                 
             case 'paraxial'
@@ -466,52 +408,30 @@ for ind_receiver = 1 : num_receiver
                     
                     case 2
                         
-                        % get the two initial orthogonal perturbation vectors
-                        % by rotating the initial direction of the main ray by
-                        % -pi/4 and pi/4 Radians
-                        
-                        % get rotation angle in Radians
-                        angle_rotation = pi/2;
-                        
-                        % get the rotation matrix for the left auxiliary ray
-                        % This matrix, which enforces pi/2 radians rotation,
-                        % is used for ensuring that the initial direction
-                        % perturbation is normal to the initial direction.
-                        rotation_matrix_left = [cos(-angle_rotation), -sin(-angle_rotation);...
-                            sin(-angle_rotation), cos(-angle_rotation)];
+                        % calculate the perturbed position for the first auxiliary
+                        % ray
+                        [~, ~, ~, ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
+                            polar_initial_direction, cartesian_position_emitter, false, true, 'paraxial' );
                         
                     case 3
                         
-                        % get the rotation matrix for the left auxiliary ray
-                        rotation_matrix_left = [0, 0, 0;...
-                            0, 0, 1;...
-                            0, -1, 0];
+                        % calculate the perturbed position for the first auxiliary
+                        % ray
+                        [~, ~, ~, ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
+                            polar_initial_direction, cartesian_position_emitter, false, true, 'paraxial1');
                         
-                        % get the rotation matrix for the right auxiliary ray
-                        rotation_matrix_right = [0, 0, 1;...
-                            0, 0, 0,;...
-                            -1, 0, 0];
+                        % calculate the perturbed position for the second auxiliary
+                        % ray
+                        [~, ~, ~, ray_positions_auxilary_right, ~, ~, ~] = feval(solve_auxiliary_ray,...
+                            polar_initial_direction, cartesian_position_emitter, false, true, 'paraxial2');
                         
+                        % get the cross product of rays' pertrurbed positions
+                        ray_positions_auxilary_left = cross(ray_positions_auxilary_left,...
+                            ray_positions_auxilary_right, 1);
                         
                 end
                 
-                % get the initial polar direction of the ray before
-                % rotation
-                angle_left = polar_initial_direction;
-                % angle_right = polar_initial_direction;
-                
         end
-        
-        
-        % calculate the position of the left auxiliary ray.
-        % for paraxial rays, perturbed positions, (and perturbed directions, if
-        % requested)
-        [~, ~, ~, ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
-            angle_left, cartesian_position_emitter, false, true,...
-            rotation_matrix_left);
-        
-        
-        
         
         %%=====================================================================
         % CALCULATE THE ADJOINT AUXILIARY RAYS
@@ -520,11 +440,21 @@ for ind_receiver = 1 : num_receiver
         % coordinate
         switch para.raylinking_method
             case 'Regula-Falsi'
-                adjoint_polar_initial_direction = calcDirectionalAngle([-cartesian_position_receivers(:, ind_receiver);  0],...
+                
+                adjoint_polar_initial_direction = calcDirectionalAngle(...
+                    [-cartesian_position_receivers(:, ind_receiver);  0],...
                     [ray_positions(:, end-1) - ray_positions(:, end); 0]);
             case 'Secant'
-                [adjoint_polar_initial_direction, ~] = cart2pol(ray_positions(1, end-1) - ray_positions(1, end),...
+                
+                [adjoint_polar_initial_direction, ~] = cart2pol(...
+                    ray_positions(1, end-1) - ray_positions(1, end),...
                     ray_positions(2, end-1) - ray_positions(2, end));
+            case 'Quasi-Newton' 
+                    
+                % give an error
+                error(['For 3D case, only the time-of-flight-based approach'...
+                    'is included for this code version.'])
+                
         end
         
         
@@ -537,18 +467,15 @@ for ind_receiver = 1 : num_receiver
                 % polar direction for the right auxiliary ray
                 angle_right = adjoint_polar_initial_direction + para.reference_angle;
                 
-                
-                % calculate the position of the right auxiliary adjoint ray.
-                [~, ~, ~, adjoint_ray_positions_auxilary_right, ~, ~, ~] = feval(solve_auxiliary_ray, angle_right,...
-                    cartesian_position_receivers(:, ind_receiver), false, true,...
-                    rotation_matrix_right);
-                
-                
                 % calculate the position of the left auxiliary adjoint ray.
                 [~, ~, ~, adjoint_ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
-                    angle_left, cartesian_position_receivers(:, ind_receiver),...
-                    false, true, rotation_matrix_left);
+                    angle_left, cartesian_position_receivers(:, ind_receiver), false, true,...
+                    para.auxiliary_method);
                 
+                % calculate the position of the right auxiliary adjoint ray.
+                [~, ~, ~, adjoint_ray_positions_auxilary_right, ~, ~, ~] = feval(solve_auxiliary_ray,...
+                    angle_right, cartesian_position_receivers(:, ind_receiver), false, true,...
+                    para.auxiliary_method);
                 
             case 'paraxial'
                 
@@ -557,13 +484,37 @@ for ind_receiver = 1 : num_receiver
                 
                 % get the amplitude for the perturbation to the
                 % initial position
-                % rotation_matrix_left.amplitude = para.perturbation_position_amplitude;
-                [ray_positions_adjoint] = calcRayAdjointParaxial(ray_positions, ray_spacing, rayspacing_receiver);
+                [ray_positions_adjoint] = calcRayAdjointParaxial(ray_positions,...
+                    ray_spacing, rayspacing_receiver);
                 
-                % calculate the position of the left auxiliary adjoint ray.
-                [~, ~, ~, adjoint_ray_positions_auxilary_left, ~, ~, ~] = feval(solve_auxiliary_ray,...
-                    angle_left, ray_positions_adjoint,...
-                    false, true, rotation_matrix_left);
+                switch dim
+                    case 2
+                        
+                        % calculate the perturbed position for the first auxiliary
+                        % adjoint ray
+                        [~, ~, ~, adjoint_ray_positions_auxilary_left, ~, ~, ~] = ...
+                            feval(solve_auxiliary_ray, angle_left, ray_positions_adjoint,...
+                            false, true, 'paraxial');
+                        
+                    case 3
+                        
+                        % calculate the perturbed position for the first auxiliary
+                        % adjoint ray
+                        [~, ~, ~, adjoint_ray_positions_auxilary_left, ~, ~, ~] = ...
+                            feval(solve_auxiliary_ray, angle_left, ray_positions_adjoint,...
+                            false, true, 'paraxial1');
+                        
+                        % calculate the perturbed position for the second auxiliary
+                        % adjoint ray
+                        [~, ~, ~, adjoint_ray_positions_auxilary_right, ~, ~, ~] = ...
+                            feval(solve_auxiliary_ray, angle_left, ray_positions_adjoint,...
+                            false, true, 'paraxial2');
+                        
+                        % get the cross product of adjoint rays' pertrurbed
+                        % positions.
+                        adjoint_ray_positions_auxilary_left = cross(adjoint_ray_positions_auxilary_left,...
+                            adjoint_ray_positions_auxilary_right, 1);
+                end
                 
         end
         
@@ -571,7 +522,6 @@ for ind_receiver = 1 : num_receiver
         %%=====================================================================
         % FILL THE MATRICES FOR THE AUXILIARY RAYS FOR THE CURRENT RECEIVER
         %======================================================================
-        
         % get the starting index for filling the matrix for the position of the
         % auxiliary rays
         receiver_index_position = ind_receiver * dim - (dim-1);
@@ -580,8 +530,6 @@ for ind_receiver = 1 : num_receiver
         % left auxiliary ray
         ray_positions_auxilary_left_allreceivers(receiver_index_position:ind_receiver * dim,...
             1:size(ray_positions_auxilary_left, 2) ) = ray_positions_auxilary_left;
-        
-        
         
         % get the ray positions for the adjoint auxiliary rays
         % left auxiliary ray
@@ -595,28 +543,22 @@ for ind_receiver = 1 : num_receiver
             ray_positions_auxilary_right_allreceivers(receiver_index_position:ind_receiver * dim,...
                 1:size(ray_positions_auxilary_right, 2) ) = ray_positions_auxilary_right;
             
-            
             % right auxiliary ray
             adjoint_ray_positions_auxilary_right_allreceivers(receiver_index_position:ind_receiver * dim,...
                 1:size(adjoint_ray_positions_auxilary_right, 2) ) = adjoint_ray_positions_auxilary_right;
             
-            
         end
-        
         
     end
     
-    
-    % fill the matrix for catesian position of the end point of the linked ray for each receiver
+    % fill the matrix's row for cartesian position of the end point of the linked ray for each receiver
     cartesian_position_endpoint_allreceivers(:, ind_receiver) = cartesian_position_endpoint;
     
-    % fill the matrix for the number of solved rays for ray
+    % fill the matrix's row for the number of solved rays for ray
     % linking for each receiver
     num_rays_allreceivers(ind_receiver) = num_rays;
     
     rayspacing_allreceivers(ind_receiver) = rayspacing_receiver;
-   
- 
     
 end
 
@@ -626,8 +568,6 @@ end
 if strcmp(para.raylinking_method, 'Regula-Falsi')
     optimal_polar_initial_direction_allreceivers = [];
 end
-
-
 
 
 end

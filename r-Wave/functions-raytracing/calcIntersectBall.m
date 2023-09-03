@@ -77,4 +77,3 @@ pos_intersection = pos_start + distance * direction;
 
 
 end
-

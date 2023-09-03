@@ -75,14 +75,23 @@ function [indices, coeff, coeff_derivative_x, coeff_derivative_y, coeff_derivati
 if all(indices - numel(mask)<0)
 if any(mask(indices))
     
+    % get the distance of the off-grid point and the first grid point
+    % divided by the grid spacing along 
+    % x coordinate
     xd = (pos_point(1) - xvec(index_x))/dx;
+    % y coordinate
     yd = (pos_point(2) - yvec(index_y))/dx;
     
-    
+    % get the polynomial of the interpolation of the map along
+    % x coordinate
     polynomial_x = raytogrid_coeff_matrix * [xd^3; xd^2; xd; 1];
+    % y coordinate
     polynomial_y = raytogrid_coeff_matrix * [yd^3; yd^2; yd; 1];
     
+    % get the polynomial of the interpolation of the map along
+    % x coordinate
     polynomial_derivative_x = raytogrid_coeff_derivative_matrix *[xd^2; xd; 1];
+    % y coordinate
     polynomial_derivative_y = raytogrid_coeff_derivative_matrix *[yd^2; yd; 1];
     
     
@@ -103,26 +112,47 @@ if any(mask(indices))
             polynomial_derivative_z = raytogrid_coeff_derivative_matrix *[zd^2; zd; 1];
             
             
-            p_xy = polynomial_x * polynomial_y';
-            p_dxy = polynomial_derivative_x * polynomial_y';
-            p_xdy = polynomial_x * polynomial_derivative_y';
             
-            coeff = zeros(4,4,4);
-            coeff_derivative_x = zeros(4,4,4);
-            coeff_derivative_y = zeros(4,4,4);
-            coeff_derivative_z = zeros(4,4,4);
+            % get the interpolation coefficients for interpolation of the
+            % map
+            coeff = vectorise(polynomial_x * polynomial_y'.*...
+                reshape(polynomial_z, 1, 1, [])).';
             
-            for i = 1:4
-                coeff(:,:,i) = polynomial_z(i) * p_xy;
-                coeff_derivative_x(:,:,i) = polynomial_z(i) * p_dxy;
-                coeff_derivative_y(:,:,i) = polynomial_z(i) * p_xdy;
-                coeff_derivative_z(:,:,i) = polynomial_derivative_z(i) * p_xy;
-            end
+            % get the interpolation coefficients for interpolation of the
+            % the first derivative along
+            % x coordinate
+            coeff_derivative_x = vectorise(polynomial_derivative_x * polynomial_y'.*...
+                reshape(polynomial_z, 1, 1, [])).';
+          
+            % y coordinate
+            coeff_derivative_y = vectorise(polynomial_x * polynomial_derivative_y'.*...
+                reshape(polynomial_z, 1, 1, [])).';
             
-            coeff = (coeff(:))';
-            coeff_derivative_x = (coeff_derivative_x(:))';
-            coeff_derivative_y = (coeff_derivative_y(:))';
-            coeff_derivative_z = (coeff_derivative_z(:))';
+            % z coordinate
+            coeff_derivative_z = vectorise(polynomial_x * polynomial_y'.*...
+                reshape(polynomial_derivative_z, 1, 1, [])).';
+            
+            
+            %p_xy = polynomial_x * polynomial_y';
+            %p_dxy = polynomial_derivative_x * polynomial_y';
+            %p_xdy = polynomial_x * polynomial_derivative_y';
+            
+            %coeff = zeros(4,4,4);
+            %coeff_derivative_x = zeros(4,4,4);
+            %coeff_derivative_y = zeros(4,4,4);
+            %coeff_derivative_z = zeros(4,4,4);
+            
+            %for i = 1:4
+            %    coeff(:,:,i) = polynomial_z(i) * p_xy;
+            %    coeff_derivative_x(:,:,i) = polynomial_z(i) * p_dxy;
+            %   coeff_derivative_y(:,:,i) = polynomial_z(i) * p_xdy;
+            %    coeff_derivative_z(:,:,i) = polynomial_derivative_z(i) * p_xy;
+            %end
+            
+            %coeff = (coeff(:))';
+            %coeff_derivative_x = (coeff_derivative_x(:))';
+            %coeff_derivative_y = (coeff_derivative_y(:))';
+            %coeff_derivative_z = (coeff_derivative_z(:))';
     end
     
     

@@ -1,21 +1,19 @@
 function [polar_direction_residual, cartesian_pos_endpoint,...
     polar_direction_endpoint, ray_positions, ray_acoustic_length,...
     ray_absorption, rayspacing_receiver] = ...
-    calcRayParametersBsplineFullWave(refractive, cartesian_position_emitter,...
-    polar_direction_receiver, polar_initial_direction, rotation_matrix,...
-    xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size, dim,...
-    detec_radius, mask, raytogrid_indices_x, raytogrid_indices_y,...
-    raytogrid_indices_z, raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix, ...
-    raytogrid_coeff_second_derivative_matrix, refractive_nonsmoothed,...
-    absorption_coeff, calc_coeffs, raylinking_method, interp_method,...
-    auxiliary_ray, auxiliary_method)
-%CALCRAYPARAMETERSBSPLINEFULLWAVE traces a ray and calculates the information
+    calcRayLinkForwardFullWave(ray_interp_coeffs, refractive, refractive_nonsmoothed,...
+    absorption_coeff, cartesian_position_emitter, polar_direction_receiver,...
+    polar_initial_direction, xvec, yvec, zvec, pos_grid_first,...
+    pos_grid_end, dx, ds, grid_size, dim, detec_geom, mask, calc_coeffs,...
+    raylinking_method, interp_method, auxiliary_ray, auxiliary_method)
+%CALCRAYLINKFORWARDFULLWAVE traces a ray and calculates the information
 % about the ray.
 %
 % DESCRIPTION:
-% calRayParametersBsplineFullWave traces a ray and calculates the information
-% about the end point of the ray. This information will be used for solving the ray
-% linking inverse problem. Only for the linked (optimal ray after ray linking),
+% calRayLinkForwardFullWave traces a ray and calculates the information
+% about the end point of the ray. In other words, this function solves the
+% forward operators for iteratvely solving the inverse problem of ray
+% linking. Only for the linked (optimal ray after ray linking),
 % this function computes the accumulated parameters along the rays, as well
 % as the information required for computing the geometerical attenuation.
 
@@ -23,10 +21,34 @@ function [polar_direction_residual, cartesian_pos_endpoint,...
 %
 %
 % INPUTS:
-%       refractive            - disretised refractive index
-%       refractive_gradient_x - discretised refractive index gradient along x
-%       refractive_gradient_y - discretised refractive index gradient along y
-%       refractive_gradient_z - discretised refractive index gradient along z
+%       ray_interp_coeffs   - a struct with fields the direction gradients
+%                           for an interpolation using a'Bilinear'
+%                           approach, or parameters for choosing indices of
+%                           the grid points and their associated coefficients for an
+%                           interpolation using a 'Bspline' approach.
+%                           The fields are:
+%       'refractive_gradient_x' - discretised refractive index gradient along x
+%       'refractive_gradient_y' - discretised refractive index gradient along y
+%       'refractive_gradient_z' - discretised refractive index gradient along z
+%                              using a'Bspline' interpolation, this
+%                              includes the matrices for intertpolation:
+%       'raytogrid_indices_x'   - x indices for B-spline interpolation
+%       'raytogrid_indices_y'   - y indices for B-spline interpolation                                  
+%       'raytogrid_indices_z'   - z indices for B-spline interpolation
+%     'raytogrid_coeff_matrix'  - matrix for calculating B-spline
+%                                 interpolation coefficients of the field
+%     'raytogrid_coeff_derivative_matrix' - matrix for calculating B-spline
+%                                 interpolation coefficients for the first-order 
+%                                 gradient of the field
+%     'raytogrid_coeff_second_derivative_matrix' - matrix for calculating B-spline
+%                                 interpolation coefficients for the second_order 
+%                                 gradient of the field
+%       refractive          - the smoothed refractive index sued for
+%                             computing rays' trajectories
+%       refractive_nonsmoothed - the nonsmoothed refractive index matrix used
+%                                for integration along the linked rays
+%       absorption_coeff       - the nonsmoothed absorption coefficient matrix
+%                                used for integration along the linked rays
 %       cartesian_position_emitter - a dim x 1 cartesian position of the emitter
 %       polar_direction_receiver   - a (dim-1) x 1 vector of the polar direction from emitter to
 %                                    receiver
@@ -48,20 +70,12 @@ function [polar_direction_residual, cartesian_pos_endpoint,...
 %       dim                  - the dimension of the medium
 %       mask                 - a binary mask used for calculating the
 %                              interpolation coefficients
-%                              the refractive index in water can be assumed the
-%                              same, and thus the associated line integarals are
-%                              cancelled for a difference imaging.)
-%      raytogrid_indices_x   -  x indices for B-spline interpolation
-%      raytogrid_indices_y   -  y indices for B-spline interpolation
-%      raytogrid_indices_z   -  z indices for B-spline interpolation
-%      raytogrid_coeff_matrix - matrix for calculating B-spline
-%                               interpolation coefficients of the field
-%      raytogrid_coeff_derivative_matrix - matrix for calculating B-spline
-%                                         interpolation coefficients of the
-%                                         directional gradients of the field
-%       calc_coeffs          - a Boolean controlling whether the
 %                              accumulated parameters along the ray are
 %                              computed and stored or not.
+%       calc_coeffs          - a boolean controlling whether the
+%                              parameters of the Green's function are
+%                              computed or not. This is set true for the
+%                              linked (optimal) ray.
 %       interp_method        - method for interpolation
 %       auxiliary_ray        - Boolean indicating whether the ray to be
 %                              traced is auxiliary ray or not
@@ -99,6 +113,15 @@ function [polar_direction_residual, cartesian_pos_endpoint,...
 %
 % This script is part of the r-Wave Tool-box.
 % Copyright (c) 2022 Ashkan Javaherian 
+
+
+if dim == 3 &&  auxiliary_ray && ~any(strcmp(auxiliary_method, {'paraxial1', 'paraxial2'}))
+    error(['If the number of dimensions are three, the auxiliary method must be set'...
+       'paraxial1 of paraxial2']) 
+end
+
+
+
 
 if size(cartesian_position_emitter, 2) < 2
 
@@ -144,22 +167,31 @@ else
     
 end
 
+
+
+
+ % get the initial perturbation to the position of the ray 
+ % That must be normal to the initial direction of the ray 
 if auxiliary_ray
     switch auxiliary_method
         case 'paraxial'
+                    cartesian_initial_direction_perturbation = [-cartesian_initial_direction(2);...
+                        cartesian_initial_direction(1)];
+                    
+        case 'paraxial1'
             
-            % get the perturbation vector for the initial direction of the
-            % ray, if the method for tracing auxiliary rays is paraxial
-            cartesian_initial_direction_perturbation = rotation_matrix...
-                * cartesian_initial_direction;
+                    cartesian_initial_direction_perturbation = [0; cartesian_initial_direction(3);...
+                        -cartesian_initial_direction(2)];
+                    
+                    auxiliary_method = 'paraxial';
+                    
+        case 'paraxial2'
             
-            % adjust the amplitude of the perturbation to the direction
-            cartesian_initial_direction_perturbation = ...
-                - cartesian_initial_direction_perturbation/...
-                norm(cartesian_initial_direction_perturbation);
-            
-            
-        case 'angle_perturbation'
+                  cartesian_initial_direction_perturbation = [cartesian_initial_direction(3); 0;...
+                        -cartesian_initial_direction(1)];
+                   auxiliary_method = 'paraxial'; 
+                   
+        otherwise
             
            % the perturbation to the initial cartesian direction of the ray
            cartesian_initial_direction_perturbation = []; 
@@ -178,9 +210,6 @@ end
 
 
 
-% trace the ray
-% calculate the cartesian points along the ray and their associated
-% interpolation coefficients
 switch interp_method
     case 'Bilinear'
         error(['Bilinear interpolation is not used for the Greens function approach'...
@@ -188,24 +217,22 @@ switch interp_method
         
     case {'Bspline'}
        
-       
-      %% This is the main function!!!
-      [cartesian_pos_endpoint, ray_positions, ray_acoustic_length,...
-          ray_absorption, rayspacing_receiver] = calcRayRungeKutta2ndBsplineFullWave2(...
-          refractive, cartesian_position_emitter, cartesian_initial_direction, ...
-          cartesian_initial_direction_perturbation, xvec, yvec, zvec, pos_grid_first, ...
-          pos_grid_end, dx, ds, grid_size, dim, detec_radius, mask,...
-          raytogrid_indices_x, raytogrid_indices_y, raytogrid_indices_z,...
-          raytogrid_coeff_matrix, raytogrid_coeff_derivative_matrix,...
-          raytogrid_coeff_second_derivative_matrix, refractive_nonsmoothed,...
-          absorption_coeff, calc_coeffs, auxiliary_ray, auxiliary_method);
-       
- 
-       
+        % compute the ray and its end point if the ray is computed for solving
+        % the forward operators for iteratively solving the inverse problem of
+        % ray linking. Only for the linked ray (optimal ray), get the parameters
+        % of the Green's function along the ray
+        [cartesian_pos_endpoint, ray_positions, ray_acoustic_length,...
+            ray_absorption, rayspacing_receiver] = calcRayRungeKutta2ndBsplineFullWave(...
+            ray_interp_coeffs, refractive, refractive_nonsmoothed, absorption_coeff,...
+            cartesian_position_emitter, cartesian_initial_direction,...
+            cartesian_initial_direction_perturbation, xvec, yvec, zvec, pos_grid_first, ...
+            pos_grid_end, dx, ds, grid_size, dim, detec_geom, mask,...
+            calc_coeffs, auxiliary_ray, auxiliary_method);
        
 end
 
-% the cartesian direction of rhe geometrical vector linking the emitter
+
+% the cartesian direction of the geometrical vector linking the emitter
 % to the last point of the ray
 cartesian_direction_endpoint = cartesian_pos_endpoint - cartesian_position_emitter;
 
@@ -240,7 +267,9 @@ end
 % unit vector from emitter to the receiver and polar unit vector from
 % emitter to the last point of the ray, if requested
 if ~isempty(polar_direction_receiver)
+    
     polar_direction_residual = polar_direction_endpoint - polar_direction_receiver;
+    
     % wrap the first component into the interval [-pi,+pi] radian
     polar_direction_residual(1) = wrapToPi(polar_direction_residual(1));
 else

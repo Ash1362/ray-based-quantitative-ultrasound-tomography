@@ -71,26 +71,49 @@ switch method
         
         % update the residual
          res = system_matrix' * (b - system_matrix * x);
+         
+         % update the update direction
          update_direction = res;
          
         for iter = 1:ls_itetation_number
             
+            
+            % update the action of the approximate Hessian on the update direction
             z = system_matrix' * (system_matrix * update_direction);
+            
+            % update the step length
             alpha = (res' * res) / (update_direction' * z);
+            
+             % store the current residual
             res_previous = res;
+            
+            % update the residual
             res = res_previous - alpha * z;
+            
+            % compute the L2 norm of the residual
             res_norm(iter) = norm(res);
+            
+            
             % terminate the cg algorithm, if the norm of residual increases
             if iter > 1
                 if res_norm(iter) > res_norm(iter-1)
                     break
                 end
             end
+            
+            % update the solution
             x = x + step_length * alpha * update_direction;
-            % calculate the L2 norm of the residual
+            
+            % display the L2 norm of the residual
             disp( ['The norm of cg residual is:' num2str(norm(res), '%1.3f')]);
+            
+             % update the step length for residual
             beta = (res' * res)/(res_previous' * res_previous);
+            
+            % update the update direction
             update_direction = res + beta * update_direction;
+            
+            % display the number of iteration
             disp(['The number of inner iteration is:' num2str(iter)]);
             
         end
@@ -99,15 +122,31 @@ switch method
         
         for iter = 1:ls_itetation_number
             
-            % update the direction
-            update_direction = step_length.coeff_gridpoints' .* (system_matrix' *...
-                (step_length.coeff_res .* (b - system_matrix * x)));
+            
+            % update the residual
+            res = b - system_matrix * x;
             
             % getb the norm of the update direction
+            res_norm(iter) = norm(res);
+            
+            % terminate the cg algorithm, if the norm of residual increases
+            if iter > 1
+                if res_norm(iter) > res_norm(iter-1)
+                    break
+                end
+            end
+            
+            % update the direction
+            update_direction = step_length.coeff_gridpoints' .* (system_matrix' *...
+                (step_length.coeff_res .* res));
+            
+            % get the norm of the update direction
             res_norm(iter) = norm(update_direction);
             
             % update the solution
             x = x + step_length.step_length * update_direction;
+            
+            % display the number of iteration
             disp(['The number of inner iteration is:' num2str(iter)]);
         end
          
@@ -120,7 +159,7 @@ residual_norm = res_norm(1);
 % terminate the time counter
 solve_time = toc(ts);
 
-% calculate the L2 norm of the gradient
+% calculate the first norm of the residual
 disp(['The norm of the residual after solving the linear subproblem is:' num2str(residual_norm, '%1.3f')]);
 
 end

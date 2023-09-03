@@ -45,7 +45,7 @@ function [img, out, initial_angles] = reconstructIterativeSoundspeed(tof_discrep
 %                            'rotating' setting, it will be set the mean of
 %                            the sound speed ecncompassing the object
 %                            during rotation of the detection surface.
-%      rotation_indices    - 1 x num_emitter vector of indices of angluar
+%      rotation_indices    - num_emitter x 1 vector of indices of angluar
 %                            positions for excitions
 %      sound_speed_true    - the true sound speed map used as the ground
 %                            truth for simulation studies
@@ -128,6 +128,8 @@ function [img, out, initial_angles] = reconstructIterativeSoundspeed(tof_discrep
 %      'residual_norm'        - the first component of norm_res
 %      'num_rays'             - the number of rays for ray linking between
 %                               the emitter-receiver pairs
+%      cartesian_position_end_point' - the cartesian position of the end
+%                               point of the linked rays for all iterations
 %      'system_matrix_time'   - the cpu time for construction of the system
 %                               matrix
 %      'update_time'          - the cpu time for solving each linear subproblem
@@ -396,18 +398,15 @@ end
 disp(['The approach for linearisaton of the objective function is:' para.linearisation_approach])
 disp(['The approach for solving the linearised paroblems is:' para.linear_subproblem_method])
 
-if strcmp(ust_setting, 'static')
     
-    % get the number of emitters
-    num_emitter = size(emitter_positions, 2);
-    
-    % get the number of receivers
-    num_receiver = size(receiver_positions, 2);
-    
-    % if the detection surface does not rotate
-    water.sound_speed_object_water = water.sound_speed_only_water;
-    water.refractive_object_water = ones(num_emitter * num_receiver, 1);
-end
+% get the mean sound speed of the water for the object-in-water data
+% (static or during the rotation of transducers)
+water.sound_speed_object_water = water.sound_speed_only_water;
+
+% get the refractive index of the water for the object-in-water data
+% (static or during the rotation of transducers)
+water.refractive_object_water = ones(size(tof_discrepancy(:)));
+
 
 if strcmp(para.linearisation_approach, 'absolute')
     
@@ -415,20 +414,26 @@ if strcmp(para.linearisation_approach, 'absolute')
     % of water during the rotation of the detection surface
     acoustic_length_water = water.refractive_object_water .*...
         acoustic_length_water;
+    
 end
 
 % get the mean refractive index of water
 refractive_water_mean = water.sound_speed_only_water/water.sound_speed_object_water;
 
-% get the difference accoustic lengths
+% get the difference acoustic lengths
 % (here, the reference sound speed used for image reconstruction is used the
 % the same as the reference sound speed used for k-Wave simulation, but
 % they can be different.)
 acoustic_length = water.sound_speed_only_water * tof_discrepancy(:);
 
 % remove nans and zeros from difference TOFs
-acoustic_length(~isfinite(acoustic_length))= 0;
+acoustic_length(~isfinite(acoustic_length)) = 0;
 zero_indices = ~acoustic_length;
+
+% display the number of excluded emitter-receiver pairs
+disp(['The number of excluded emitter-receiver pairs are:'...
+    num2str(nnz(zero_indices))]);
+
 acoustic_length(zero_indices) = [];
 
 switch para.linearisation_approach
@@ -443,6 +448,11 @@ out = [];
 
 % a cell array containing the number of rays for each emitter-receiver
 out.num_rays = cell(1, num_iterout);
+
+% a cell array containing the cartesian poistion of the end points of the
+% rays on the detection line (or surface)
+out.cartesian_position_end_point = cell(1, num_iterout);
+
 
 % compute the system matrix using ray tracing for the homogeneous water,
 % which is the initial guess for TOF-based image reconstruction
@@ -461,17 +471,13 @@ ray_args = {'nworker_pool', para.num_worker_pool,...
     'varepsilon', para.raylinking_threshold,...
     'refractive_background', refractive_water_mean};
 
-[system_matrix, ~, out.num_rays{1}, initial_angles, system_matrix_time(1)] = ...
+[system_matrix, out.cartesian_position_end_point{1}, out.num_rays{1}, initial_angles, system_matrix_time(1)] = ...
     calcTransmissionMatrix(recon_grid, refractive_water_mean * ones(recon_grid.size), emitter_positions,...
     receiver_positions, [], mask_raytracing, rotation_indices, 0, ray_args{:});
 
 
 % remove the rows corresponding to the zeros in the difference TOFs
 system_matrix(zero_indices ,:) = [];
-
-% remove the zero indices from the vector for number of traced rays for ray
-% linking
-out.num_rays{1}(zero_indices) = [];
 
 % calculate the inverse coefficients for the rows (emitter-receiver pairs)
 coeff_res_inv = sum(system_matrix, 2);
@@ -507,10 +513,10 @@ if strcmp(para.linear_subproblem_method, 'sart')
     coeff_gridpoints_inv = sum(system_matrix, 1);
     
     % remove the grid points with zero inverse coefficient from the system matrix
-    system_matrix = system_matrix(:, abs(coeff_gridpoints_inv) >  eps);
+    system_matrix = system_matrix(:, coeff_gridpoints_inv >  0);
     
     % calculate the inverse coefficients for the grid points
-    coeff_gridpoints = 1./coeff_gridpoints_inv(abs(coeff_gridpoints_inv) > eps); % (maskal)';
+    coeff_gridpoints = 1./coeff_gridpoints_inv(coeff_gridpoints_inv > 0); % (maskal)';
     
     % calculate the inverse coefficients for the residual
     coeff_res_inv(res_null) = [];
@@ -570,7 +576,7 @@ for iterout = 1 : num_iterout
     if (strcmp(para.matrix_construction_method, 'bent-ray') && iterout > 1)...
             
     % update the system Matrix using the update of refractive index
-    [system_matrix, ~, out.num_rays{iterout}, initial_angles,...
+    [system_matrix, out.cartesian_position_end_point{iterout}, out.num_rays{iterout}, initial_angles,...
         out.system_matrix_time(iterout)] = calcTransmissionMatrix(recon_grid,...
         refractive, emitter_positions, receiver_positions, initial_angles,...
         mask_raytracing, rotation_indices, 0, ray_args{:});
@@ -578,10 +584,6 @@ for iterout = 1 : num_iterout
     
     % remove the rows corresponding to the zeros in the difference TOFs
     system_matrix(zero_indices,:) = [];
-    
-    % remove the zero indices from the vector for number of traced rays for ray
-    % linking
-    out.num_rays{iterout}(zero_indices) = [];
     
     % calculate the inverse coefficients for the rows (emitter-receiver
     % pairs)
@@ -604,6 +606,7 @@ for iterout = 1 : num_iterout
     % update the absolute acoustic length
     switch para.linearisation_approach
         case 'difference'
+           error('The difference approach for image reconstruction is deprecated.')
             acoustic_length_absolute = acoustic_length(~res_null)...
                 + water.refractive_object_water(~res_null) .*...
                 (system_matrix * ones(size(system_matrix, 2), 1));
@@ -619,10 +622,10 @@ for iterout = 1 : num_iterout
         coeff_gridpoints_inv = sum(system_matrix, 1);
         
         % remove the grid points with zero inverse coefficient from the system matrix
-        system_matrix = system_matrix(:, abs(coeff_gridpoints_inv) >  eps);
+        system_matrix = system_matrix(:, coeff_gridpoints_inv >  0);
         
         % calculate the inverse coefficients for the grid points
-        coeff_gridpoints = 1./coeff_gridpoints_inv(abs(coeff_gridpoints_inv) >  eps); % (maskal)';
+        coeff_gridpoints = 1./coeff_gridpoints_inv(coeff_gridpoints_inv >  0); % (maskal)';
         
         % claculate the inverse coefficients for the residual
         coeff_res_inv(res_null) = [];
@@ -644,13 +647,14 @@ for iterout = 1 : num_iterout
         
         % get the update inside the mask and for grid points and nonzero
         % coefficients
-        x = x1(abs(coeff_gridpoints_inv) >  eps);
+        x = x1(coeff_gridpoints_inv >  0);
         
     else
         
         % get the update inside the mask for ray tracing
         x = x_all(mask_raytracing(:));
     end
+    
     
     % solve the linearised problem
     [x, out.norm_res(iterout, :), out.residual_norm(iterout), out.update_time(iterout)] ...
@@ -661,7 +665,7 @@ for iterout = 1 : num_iterout
     % binary mask for ray tracing
     if strcmp(para.linear_subproblem_method, 'sart')
         
-        x1(abs(coeff_gridpoints_inv) >  eps) = x;
+        x1(coeff_gridpoints_inv >  0) = x;
         
         % update the refractive index for the entire computational grid
         x_all(mask_raytracing(:)) = x1;

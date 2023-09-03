@@ -1,5 +1,6 @@
-function [img, out, para] = reconstructGreensImage(data, recon_grid, emitter, receiver,...
-    medium, img, grid_spacing, ray_initial_angles, kgrid, directories, varargin)
+function [img, out, para] = reconstructGreensImage(data, time_array, recon_grid,...
+    emitter, receiver, sound_speed_water, img, ray_initial_angles, simulation_prop,...
+    directories, varargin)
 %RECONSTRUCTGREENSIMAGE reconstructs the image of the sound speed using the
 %Green's approach
 %
@@ -19,6 +20,8 @@ function [img, out, para] = reconstructGreensImage(data, recon_grid, emitter, re
 %                           num_emitter the number of emitters, num_time
 %                           the number of time instants for measurement
 %                           and num_receiver the number of receivers.
+%       time_array        - a time array [s] of size 1 x num_time on which the 
+%                           the UST time series are measured. 
 %       recon_grid        - the computational grid for image reconstruction.
 %       emitter           - a struct which defines the properties of the
 %                           excitation as follows: This includes the
@@ -38,17 +41,43 @@ function [img, out, para] = reconstructGreensImage(data, recon_grid, emitter, re
 %                           angles) with each cell a 2/3 x num_transducer array of
 %                           Cartesian position of transducers for each
 %                           angle. (num_receiver = num_angle x num_transducer)
-%       medium            - a struct containing the acoustic properties of
-%                           the medium used for data simulation
-%       img               - a matrix representing the initial guess of the sound speed
+%       sound_speed_water   - the sound speed [m/s] in only water
+%       img                - a matrix representing the initial guess of the sound speed
 %                           image for iterative image reconstruction
-%       grid_spacing      - the grid spacing [m]
 %       ray_initial_angles - the num_emitter x 1 cell array each corresponding 
 %                           to an emitter, and containing the initial angle
 %                           of the rays initialised from the emitter and linked
 %                           to all recevers
-%       kgrid             - a struct array including the information about the
-%                           k-wave simulation
+%      simulation_prop      - a struct array containing the information and properties of
+%                             the k-wave simulation. This struct includs the fields: 
+%      'PML'                - a  1 x dim vector of the number of PML layers
+%                             along each dimension
+%      'f_max'              - the maximum frequency [Hz] supported by the
+%                             computational grid    
+%      'detec_radius'       - the radius of the detection ring (surface)
+%      'z_offset'           - the z offset [m] between the grid for k-Wave simulation
+%                             and the grid for image reconstruction. The
+%                             image reconstruction is done on a detection surface
+%                             (ring) with centre at the origin. (empty for
+%                             2D case)
+%      'data_path'          - the data path for storing the simulated UST
+%                             data and the computed TOFs
+%      'x'                  - the x position of the grid for the k-Wave
+%                             simulation
+%      'y'                  - the y position of the grid for the k-Wave
+%                             simulation
+%      'z'                  - the z position of the grid for the k-Wave
+%                             simulation
+%      'sound_speed'        - the ground truth sound speed distribution [m/s]
+%                             (used only for evaluation purposes, not for 
+%                              image reconstruction)
+%      'sound_speed_ref'    - the sound speed [m/s] in only water
+%      'alpha_coeff'        - the absorption coefficient [dBMHz^{-y} cm^{-1}]
+%      'alpha_power'        - the exponent power of the acoustic absorption used for
+%                             the k-Wave simulation
+%      't_array'            - the time array [s] containing time instants on
+%                             which the synthetic data for object in water 
+%                             and only water are computed.
 %       directories       - a struct containing the directories
 %      'results_directory'     - a directory for storing the results
 %      'images_directory'      - a directory for storing the images 
@@ -200,6 +229,12 @@ para.absorption_coeff_homogeneous = 0.5;
 % para.stopping_tol = 1e-3;
 para.minimum_distance_coeff = 0.7368;
 
+% get the grid spacing [m], which is assumed the same along all the
+% Cartesian coordinates
+grid_spacing = recon_grid.x_vec(2) - recon_grid.x_vec(1);
+
+
+
 % choose the smoothing window size based on the grid spacing [m]
 if grid_spacing < 1e-3
     error('The grid spacing smaller than 1mm is not necessary for a ray-based method.')
@@ -299,7 +334,7 @@ switch para.optimisation_approach
     case 'hessian'
         para.step_length = 3e4/(1000*grid_spacing);     
     case 'backprojection'
-        para.step_length = 1.2e-1;                        
+        para.step_length = 1.2e-1;                     
 end
 
     
@@ -374,7 +409,6 @@ else
 end
 
 
-
 % get the initial guess
 if length(unique(img(:))) == 1
 initial_guess =  'homogeneous';
@@ -415,7 +449,7 @@ else
     
 end
 
-% choose an angularfrequency range [rad/s]
+% choose an angular frequency range [rad/s]
 frequency_range = 2 * pi * [0.2e6, para.f_max];
 
 % the vector of angular frequencies [rad/s]
@@ -424,9 +458,6 @@ omega = linspace(frequency_range(1),...
 
 % get the spacing of the angular frequency
 omega_spacing = omega(2)-omega(1);
-
-% get the area of each pixel of the computational grid
-grid_area = recon_grid.dx * recon_grid.dy;
 
 % choose the indices of angular frequencies for the first frequency level
 frequency_indices = 1:para.num_frequency_per_level;
@@ -453,7 +484,7 @@ if all(isfinite(cutoff_freq))
     data_filter_args = {'Mode', filter_mode, 'nworker_pool', para.num_worker_pool};
     
     % apply the filter on the data
-    data = filterPressureData(data, cutoff_freq, kgrid.dt, data_filter_args{:});
+    data = filterPressureData(data, cutoff_freq, time_array, data_filter_args{:});
     
     
 end
@@ -473,9 +504,19 @@ gridtoray_interp = 'Bspline';
 %% ========================================================================
 % GET THE DISTANCE BETWEEN EMITTER-RECEIVER PAIRS
 %==========================================================================
+% give an empty variable to the field rotation_indices, if it does not
+% exist, i.e., the position of receivers are fixed with changes in
+% excitations.
+if ~isfield(emitter, 'rotation_indices')
+    
+    % add an empty field 'rotation_indices' to struct emitter.
+    emitter.rotation_indices = [];
+    
+end
+
 % Calculate the distance between emitter-receiver pairs
 distance_emitters_receivers = calculateDistanceEmitterReceiver(emitter.positions,...
-  receiver.positions, []);
+  receiver.positions, emitter.rotation_indices);
 
 % get the spacing [m] of the sampled points on the rays
 ray_spacing = grid_spacing * para.raytogrid_spacing;
@@ -483,7 +524,7 @@ ray_spacing = grid_spacing * para.raytogrid_spacing;
 % make the ray spacing smaller than the minimum distance between emitter
 % and receivers
 if min(distance_emitters_receivers(:))< 1e-10
-    error(['The current version of the codes does not accept the same transucer'...
+    error(['The current version of the codes does not accept the same transucer '...
         'used as both emiter and receiver, please contact the developer!'])
 end
 
@@ -508,21 +549,24 @@ disp(['The ray to grid spacing is:' num2str(para.raytogrid_spacing)])
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % get the sound speed, and absorption coefficient maps, and interpolate them
 % from the grid for data simulation onto the grid for ray tracing
+
+if ~isempty(simulation_prop)
+    
 switch recon_grid.dim
     case 2
         
         % interpolate the sound speed from the grid for data simulation
         % onto the grid for ray tracing and computing the Green's function
-        sound_speed_phantom = interpn(kgrid.x, kgrid.y, medium.sound_speed,...
-            recon_grid.x, recon_grid.y);
-        sound_speed_phantom(~isfinite(sound_speed_phantom)) = medium.sound_speed_ref;
+        sound_speed_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+            simulation_prop.sound_speed, recon_grid.x, recon_grid.y);
+        sound_speed_phantom(~isfinite(sound_speed_phantom)) = sound_speed_water;
         
-        if isfield(medium, 'alpha_coeff')
+        if isfield(simulation_prop, 'alpha_coeff')
             
             % interpolate the absorption coefficient from the grid for data simulation
             % onto the grid for ray tracing and computing the Green's function
-            absorption_phantom = interpn(kgrid.x, kgrid.y, medium.alpha_coeff,...
-                recon_grid.x, recon_grid.y);
+            absorption_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+                simulation_prop.alpha_coeff, recon_grid.x, recon_grid.y);
             absorption_phantom(~isfinite(absorption_phantom)) = 0;
             
         else
@@ -536,17 +580,19 @@ switch recon_grid.dim
         
         % interpolate the sound speed from the grid for data simulation
         % onto the grid for ray tracing and computing the Green's function
-        sound_speed_phantom = interpn(kgrid.x, kgrid.y, kgrid.z, medium.sound_speed,...
-            recon_grid.x, recon_grid.y, recon_grid.z + z_offset);
-        sound_speed_phantom(:, :, end) = medium.sound_speed_ref;
+        sound_speed_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+            simulation_prop.z - simulation_prop.z_offset, simulation_prop.sound_speed,...
+            recon_grid.x, recon_grid.y, recon_grid.z, 'spline');
+        sound_speed_phantom(:, :, end) = sound_speed_water;
         
         % interpolate the absorption coefficient
-        if isfield(medium, 'alpha_coeff')
+        if isfield(simulation_prop, 'alpha_coeff')
             
             % interpolate the absorption coefficient from the grid for data simulation
             % onto the grid for ray tracing and computing the Green's function
-            absorption_phantom = interpn(kgrid.x, kgrid.y, kgrid.z, medium.alpha_coeff,...
-                recon_grid.x, recon_grid.y, recon_grid.z + z_offset);
+            absorption_phantom = interpn(simulation_prop.x, simulation_prop.y,...
+                simulation_prop.z - simulation_prop.z_offset, simulation_prop.alpha_coeff,...
+                recon_grid.x, recon_grid.y, recon_grid.z, 'spline');
             absorption_phantom(:, :, end) = 0;
             
             
@@ -560,7 +606,7 @@ end
 %% ========================================================================
 % GET THE ABSORPTION COEFFICIENT
 %==========================================================================
-if isfield(medium, 'alpha_coeff')
+if isfield(simulation_prop, 'alpha_coeff')
     
 switch para.absorption_map
     case 'homogeneous'
@@ -580,7 +626,22 @@ end
 
 % make a struct array containing the absorption coefficient map and the
 % true given exponent factor
-absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
+absorption = struct('coeff', absorption_phantom, 'power', simulation_prop.alpha_power);
+
+
+else
+
+    % give an empty variable for the sound speed of phantom
+    sound_speed_phantom = [];
+    
+    % ignore abosrption, if simulation_prop is not given.
+    absorption = struct('coeff', 0, 'power', 1.4);
+ 
+end
+
+
+% get the absorption in terms of neper
+absorption.coeff_neper = db2neper(absorption.coeff, absorption.power);
 
 %%=========================================================================
     % GET THE INITIAL GUESS
@@ -592,13 +653,13 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
             % get the initial sound speed image as an image reconstructed by
             % the inversion approach using Time-of-flights
             % apply the smoothing window on the initial guess
-            img = smoothField(img, para.smoothing_window_size - 2, medium.sound_speed_ref);
+            img = smoothField(img, para.smoothing_window_size - 2, sound_speed_water);
             
         case 'homogeneous'
             
             % get a homogeneous sound speed for all grid points as the initial
             % guess
-            img = medium.sound_speed_ref * ones(recon_grid.size);
+            img = sound_speed_water * ones(recon_grid.size);
             
             % if the initial guess for the sound speed is set homogeneous and water,
             % make the initial angle of the rays an empty variable, so the
@@ -630,7 +691,7 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
     % set the sound speed outside the binary mask the background sound speed
     % (water), remind that img is the sound speed image reconstructed by
     % Time-of-Flights
-    img(~mask_recon) = medium.sound_speed_ref;
+    img(~mask_recon) = sound_speed_water;
     
     % get the Cartesian position of the grid points inside ROI mask
     grid_x = recon_grid.x(mask_recon);
@@ -643,8 +704,8 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
         ray_position_emitter_left, ray_position_emitter_right, sound_speed_relative,...
         field_mode) calcParametersGreens(....
         ray_position_emitter, ray_time_emitter, ray_absorption_emitter, ray_position_emitter_left,...
-        ray_position_emitter_right, sound_speed_relative, grid_x, grid_y, ray_spacing,...
-        detec_radius, para.mask_coeff, field_mode, 'analytic', do_get_direction, []);
+        ray_position_emitter_right, sound_speed_relative, [grid_x, grid_y], ray_spacing,...
+        detec_radius, para.mask_coeff, field_mode, do_get_direction, []);
      
         
         % get the number of frequencies for each linearisation
@@ -713,6 +774,9 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
         
     end
     
+    
+    if ~isempty(sound_speed_phantom)
+        
     % allocate a matrix for the relative error of the reconstructed images at
     % the frequency levels and the iteration at each frequency level
     switch para.optimisation_approach
@@ -724,7 +788,7 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
             
             out.relative_error = zeros(num_frequency_level, 1);
     end
-    
+    end
     
     
     % allocate cell arrays
@@ -750,15 +814,15 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
        
         % Compute the trajectory of the rays for the chosen frequency, as well as
         % the required parameters on the rays, and if the ray linking method is set
-        % 'Secant', update the initial angles of the rays such the optimal initial angles
+        % 'Secant', update the initial angles of the rays such that the optimal initial angles
         % after ray linking at the frequency level 'n-1' is used as the initial guess for ray
         % linking at the frequency level 'n'
         [~, num_rays, ray_initial_angles, ray_position, ray_time, ray_absorption, rayspacing_receiver,...
             ray_position_left, ray_position_right, adjoint_ray_position_left,...
             adjoint_ray_position_right, out.ray_cpu_time(frequency_level)] =...
-            computeRaysParameters(recon_grid, medium.sound_speed_ref./img,...
+            computeRaysParameters(recon_grid, sound_speed_water./img,...
             absorption.coeff, emitter.positions, receiver.positions,...
-            ray_initial_angles, mask_raytracing, [], [], ray_args{:});
+            ray_initial_angles, mask_raytracing, emitter.rotation_indices, [], ray_args{:});
           
         % Compute the parameters on the grid points and the receivers for the
         % forward field
@@ -770,10 +834,10 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
                 directions_grid{ind_emitter},  ~] = calc_parameters(...
                 ray_position{ind_emitter}, ray_time{ind_emitter}, ray_absorption{ind_emitter},...
                 ray_position_left{ind_emitter}, ray_position_right{ind_emitter},...
-                img(mask_recon)/medium.sound_speed_ref, 'forward');
+                img(mask_recon)/sound_speed_water, 'forward');
             
         end
-        
+     
         if strcmp(para.optimisation_approach, 'backprojection')
             
         % get the perturbation to the angle of the forward rays because of
@@ -781,6 +845,7 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
         % This derivative is computed using finite differences and using
         % the ray initilised from the adjacent emitters.
         [directions_grid] = calcDerivativeAngleToInitialPosition(directions_grid);
+        
         end
         
         
@@ -799,22 +864,26 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
                 caustic_number_adjoint{ind_receiver}, ~, ~, directions_grid_adjoint{ind_receiver}, ~] = calc_parameters(...
                 ray_position_adjoint{ind_receiver}, ray_time_adjoint{ind_receiver},...
                 ray_absorption_adjoint{ind_receiver}, ray_position_left_adjoint{ind_receiver},...
-                ray_position_right_adjoint{ind_receiver}, img(mask_recon)/medium.sound_speed_ref,...
+                ray_position_right_adjoint{ind_receiver}, img(mask_recon)/sound_speed_water,...
                 'adjoint');
             
         end
         
         if strcmp(para.optimisation_approach, 'backprojection')
-            
+        
+        % get the squared slowness
+        slowness_squared = 1./(img.^2);    
+             
         % get the perturbation to the angle of the adjoint rays because of
         % a perturbation to the initial position (the position of receiver).
         % This derivative is computed using finite differences and using
         % the ray initilised from the adjacent receivers.
         [directions_grid_adjoint] = calcDerivativeAngleToInitialPosition(directions_grid_adjoint);
+        
         end
         
         
-       
+    
         if frequency_level == 1
             switch initial_guess
                 case 'heterogeneous'
@@ -851,8 +920,6 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
             end
         end
        
-        
-        
         switch para.optimisation_approach
             case {'gradient','hessian'}
                 update_args{4} = 'gradient';
@@ -860,12 +927,11 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
                 update_args{4} = 'backprojection';
         end
         
-        
         % compute the gradient of the objective function, ie. the action of the
         % adjoint of Frechet derivative on the residual
         [out.gradient_obj(:, frequency_level), out.objective_function(frequency_level),...
             out.gradient_cpu_time(frequency_level), ~ , ~] = ...
-            calcSoundSpeedUpdateDirection(data, emitter.pulse, kgrid.t_array,...
+            calcSoundSpeedUpdateDirection(data, emitter.pulse, time_array,...
             omega(frequency_indices), parameters_grid, parameters_grid_adjoint, parameters_receiver,...
             nan_grid_binary, nan_grid_binary_adjoint, caustic_number, caustic_number_adjoint, receiver_order,...
             caustic_receiver, num_rays, [], directions_grid, directions_grid_adjoint,...
@@ -922,17 +988,20 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
             
             for iter = 1 : num_iter
                 
-                
-                % compute the relative error
-                out.relative_error(frequency_level, iter) = 100 * norm(img(mask_recon) - sound_speed_phantom(mask_recon))/...
-                    norm(sound_speed_phantom(mask_recon) - medium.sound_speed_ref);
+                if ~isempty(sound_speed_phantom) 
+                    
+                    % compute the relative error
+                    out.relative_error(frequency_level, iter) = 100 * norm(img(mask_recon)...
+                        - sound_speed_phantom(mask_recon))/...
+                        norm(sound_speed_phantom(mask_recon) - sound_speed_water);
+                end
                 
                 % get the norm of the residual
                 out.norm_res(frequency_level, iter) = norm(residual_cg);
                 
                 % calculate the action of the Hessian matrix on the update direction
                 [hessian_by_update_direction, ~, out.hessian_cpu_time(frequency_level, iter), ~ , ~] =...
-                    calcSoundSpeedUpdateDirection(data, emitter.pulse, kgrid.t_array,...
+                    calcSoundSpeedUpdateDirection(data, emitter.pulse, time_array,...
                     omega(frequency_indices), parameters_grid, parameters_grid_adjoint, parameters_receiver,...
                     nan_grid_binary, nan_grid_binary_adjoint, caustic_number, caustic_number_adjoint, receiver_order,...
                     caustic_receiver, num_rays, update_direction, directions_grid, directions_grid_adjoint,...
@@ -943,7 +1012,6 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
                 % get the real part of the action of the Hessian matrix on the sound speed
                 % update
                 hessian_by_update_direction = real(hessian_by_update_direction);
-                
                     
                     % update the cg step length 1
                     step_length_cg = (residual_cg' * preconditioned_residual_cg)...
@@ -1001,17 +1069,24 @@ absorption = struct('coeff', absorption_phantom, 'power', medium.alpha_power);
             
         else
             
-            % get the update direction of the sound speed as the minus gradient
+            % get the update direction of the wavenumber as the minus gradient
             update_direction = - out.gradient_obj(:, frequency_level);
+          
+            % update the reconstructed image of the wave number inside the mask
+            slowness_squared(mask_recon) = slowness_squared(mask_recon) + update_direction;
             
             % update the reconstructed image of the sound speed inside the mask
-            img(mask_recon) = img(mask_recon) + update_direction;
+            % from the updated wavenumber
+            img = slowness_squared.^(-1/2);
             
+            if ~isempty(sound_speed_phantom)
+                
             % compute the relative error
             out.relative_error(frequency_level) = 100 * norm(img(mask_recon) - sound_speed_phantom(mask_recon))/...
-                norm(sound_speed_phantom(mask_recon) - medium.sound_speed_ref);
+                norm(sound_speed_phantom(mask_recon) - sound_speed_water);
             
             disp(['The relative error is:' num2str(out.relative_error(frequency_level), '%1.2f') '%'])
+            end
             
         end
         

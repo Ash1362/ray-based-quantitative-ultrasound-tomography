@@ -37,11 +37,17 @@ function [tof, tof_het, tof_hom] = timeOfFlightPicking(data_het, data_hom,...
 %                                    excitation pulses, which will be used
 %                                    for calculation of the first-arrival of
 %                                    the signals
-%      emitter.shot_time           - the shot time [s] of the excitation
-%                                    pulse, which can be negative.
-%                                    Negative value indicates that the data 
-%                                    measurement has been started after
-%                                    excitation time.
+%      emitter.shot_time           - the time delay [s] of the excitation
+%                                    pulse with respect to the origin of
+%                                    time array corresponding to the
+%                                    recorded pressure time series on the
+%                                    receivers. For experimental data, this
+%                                    can be negative. Negative time value
+%                                    indicates that the data measurement
+%                                    has been started after excitation
+%                                    time, i.e., origin of the time array 
+%                                    for data recording occurs later than 
+%                                    the excitation time.
 %      receiver.positions          - 2/3 x N array of cartesian points containing
 %                                    the centers of the receiver objects
 %                                    For the cases at which the position of
@@ -53,6 +59,8 @@ function [tof, tof_het, tof_hom] = timeOfFlightPicking(data_het, data_hom,...
 %                                    transducers for each angle
 %       time_array                 - 1 x N_t vector of measurement times
 %                                    [sec]
+%       rotation_indices           - num_emitter x 1 vector of indices of angluar
+%                                    positions for excitions
 %
 % OPTIONAL INPUTS:
 %        'nWorkerPool'          - the number of used workers
@@ -83,7 +91,7 @@ function [tof, tof_het, tof_hom] = timeOfFlightPicking(data_het, data_hom,...
 %                               larger than a threshold are excluded. This can also be set
 %                               'distances', i.e., emitters and receivers with
 %                               distances smaller than a specific threshold
-%                               are excluded. Bothe approaches are
+%                               are excluded. Both approaches are
 %                               equivalent.
 %       'minimum_distance'     - the mimimum distance for emitter-receiver
 %                                pairs
@@ -94,22 +102,27 @@ function [tof, tof_het, tof_hom] = timeOfFlightPicking(data_het, data_hom,...
 %                                the included receivers will be inside a cone
 %                                with axis the vector connecting the emitter to
 %                                the centre of the detection surface.
-%        'Cutoff_freq'           - the cut-off frequency of the filter, if
-%                                 one componet (low-pass filter), if two component
-%                                 (band-pass filter)
-%         'Order'                - the order of the regression equation, if 'AR_AIC'
-%                                  approach is used.
-%         'Beta'                 - a scalar used for smoothing the
-%                                  short-time-average to long-time-average
-%                                 (this is only used for 'Modified
-%                                 Coppens' method)
-%        'Plot'                 - boolean for plotting the calculated time
-%                                 differences as a sinogram
+%      'Threshold'             - the fraction of the peak amplitude for
+%                                chosing the right edge of the time window
+%                                for time-of-flight picking. The left edge of the 
+%                                the time window is chosen based on an assumption
+%                                of a maximum sound speed for the entire medium.
+%                                If it is set zero, the right edge of the time 
+%                                window is chosen based on an assumption of a
+%                                homogeneous minimum sound speed. (Default: 0.5)
+%         'Order'              - the order of the regression equation, if 'AR_AIC'
+%                                approach is used.
+%         'Beta'               - a scalar used for smoothing the
+%                                short-time-average to long-time-average
+%                                (this is only used for 'Modified
+%                                Coppens' method)
+%        'Plot'                - boolean for plotting the calculated time
+%                                differences as a sinogram
 % OUTPUTS:
-%        tof                    - the time discrepancy of the first-arrivals
-%                                 (time-of-flights) [sec]
-%        elapsed_time           - the computational time of running this m-file
-%                                 function
+%        tof                   - the time discrepancy of the first-arrivals
+%                                (time-of-flights) [sec]
+%        elapsed_time          - the computational time of running this m-file
+%                                function
 %
 %
 %
@@ -126,17 +139,19 @@ para = [];
 para.nWorkerPool = 8;
 para.Method = 'Modified_AIC';
 para.SoundSpeedRanges = [1400, 1600];
-para.SoundSpeedRef = 1500;
+para.Threshold = 0.5;
 para.Beta = 1e-1;
 para.Order = 8;
 para.Plot = true;
 para.binaries_emitter_receiver = 'open_angle';
 
+
 if strcmp(para.binaries_emitter_receiver, 'open_angle')
     para.open_angle = pi/4;
 end
+
 para.minimum_distance = 0.08;
-para.Cutoff_freq = nan; % [0.5, 2]*1e6;
+
 
 
 % read additional arguments or overwrite default ones
@@ -146,7 +161,6 @@ if(~isempty(varargin))
         para.(varargin{input_index}) = varargin{input_index + 1};
     end
 end
-
 
 % the method used for calculation of the first arrival
 picking_method = 'Modified_AIC'; % para.Method;
@@ -164,23 +178,6 @@ end
 
 % calculate the time spacing of the measurement
 dt = time_array(2) - time_array(1);
-
-    
-% get the transition width
-trans_width_MHz = 10e6;
-
-% get the frequency
-fs = 1/dt;
-
-
-trans_width_prop = trans_width_MHz / fs;
-
-
-if length(para.Cutoff_freq) > 1
-    error('cut-off frequency must be a scalar value or nan.')
-    
-end
-
 
 % calculate the distances between each pair of emitters and receivers
 distances = calculateDistanceEmitterReceiver(emitter.positions,...
@@ -206,20 +203,18 @@ if isfield(emitter, 'pulse')
     excitation_pulse = zeros(1, length(time_array));
     excitation_pulse(1:length(emitter.pulse)) = emitter.pulse;
     
-    % M = para.Order;
-    excitation_time_max = dt * find(abs(excitation_pulse)/max(abs(excitation_pulse))>0.2, 1, 'first');
-    tof_args ={'Method', picking_method, 'Length_moving_windows',...
+
+    excitation_time_max = dt * find(abs(excitation_pulse)/max(abs(excitation_pulse)) > para.Threshold, 1, 'first');
+    
+    tof_args = {'Method', picking_method, 'Length_moving_windows',...
         [1.0, nan, 0.25, nan], 'Threshold', 0};
+    
     time_excit = timeOfFlightPickingEachSignal(excitation_pulse,...
         time_array, T, [dt, excitation_time_max], tof_args{:} );
     
-    % the line written below are deprecated.
-    %time_excit = araic(excitation_pulse, dt, time_array, T, 10, 1, 0.75, M,...
-    %  time_array(M + 1), time_array(end - M));
-    
     % display the excitation time
     disp(['The excitation time is:' num2str(time_excit) '[s]'])
-    
+   
 elseif isfield(emitter, 'shot_time')
     
     % if the excitation pulse is not given, but the first arrival of
@@ -227,12 +222,13 @@ elseif isfield(emitter, 'shot_time')
     time_excit = emitter.shot_time;
     
 end
+
 % display the excitation time
 disp(['The time of excitation in the time array is:' num2str(1e6*time_excit,'%3.5f') ':'  'microseconds']);
 
 
-% calculate the minimum and maximum time (in time_array) for the occurrence of the first
-% arrival in the main data
+% calculate the minimum and maximum time (in time_array) for the time
+% window. The time window may be later made tighter.
 TOF_min = (distances./para.SoundSpeedRanges(2)) + time_excit;
 TOF_max = (distances./para.SoundSpeedRanges(1)) + time_excit;
 
@@ -241,8 +237,6 @@ TOF_max = (distances./para.SoundSpeedRanges(1)) + time_excit;
 TOF_min_ref  = (distances./para.SoundSpeedRanges(2)) + time_excit;
 TOF_max_ref  = (distances./para.SoundSpeedRanges(1)) + time_excit;
 
-
-% Apply a band-pass filter on the data sets in the frequency domain
 % get a Tukey window
 tukey = getWin(length(time_array), 'Tukey', 'Param', 0.25).';
 
@@ -266,23 +260,39 @@ tukey = getWin(length(time_array), 'Tukey', 'Param', 0.25).';
 
 switch picking_method
     case 'Short_Time_Average/Long_Time_Average'
+        
+        error('All time-of-flight picking approaches except Modified AIC are deprecated.')
         tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, 2.5, 0.5, nan], 'Threshold', 0.5};
+            [1.0, 2.5, 0.5, nan], 'Threshold', para.Threshold};
+        
     case 'Modified_Short_Time_Average/Long_Time_Average'
+        
+        error('All time-of-flight picking approaches except Modified AIC are deprecated.')
         tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, 2.0, 0.5, 0.25], 'Threshold', 0.5};
+            [1.0, 2.0, 0.5, 0.25], 'Threshold', para.Threshold};
     case 'Modified_Energy_Ratio'
+        
+        error('All time-of-flight picking approaches except Modified AIC are deprecated.')
         tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, 1.0, nan, nan], 'Threshold', 0.5};
+            [1.0, 1.0, nan, nan], 'Threshold', para.Threshold};
     case 'Modified_Coppens'
+        
+        error('All time-of-flight picking approaches except Modified AIC are deprecated.')
         tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, nan, 0.5, 0.25], 'Threshold', 0.5, 'Beta', 1e-1};
+            [1.0, nan, 0.5, 0.25], 'Threshold', para.Threshold, 'Beta', 1e-1};
+        
     case 'Modified_AIC'
-        tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, nan, 0.25, nan], 'Threshold', 0.5};
+        
+        % the optional inputs for time-of-flight picking for each time
+        % trace
+        tof_args = {'Method', picking_method, 'Length_moving_windows',...
+            [1.0, nan, 0.25, nan], 'Threshold', para.Threshold};
+        
     case 'AR_AIC'
+        
+        error('All time-of-flight picking approaches except Modified AIC are deprecated.')
         tof_args ={'Method', picking_method, 'Length_moving_windows',...
-            [1.0, nan, 0.25, nan], 'Threshold', 0.5, 'Order', 9};
+            [1.0, nan, 0.25, nan], 'Threshold', para.Threshold, 'Order', 9};
 end
 
 
@@ -299,7 +309,6 @@ if ~isempty(data_hom)
     parfor (ind_emitter = 1:num_emitter, para.nWorkerPool)
         % for ind_emitter = 1:num_emitter % (for test)
         
-        
         % remove the DC offset from the reference (in only water) data for the current
         % emitter, and then apply a Tukey window on the time-domain signal.
         data_hom_emitter = bsxfun(@times, tukey, removeDataDc(data_hom{ind_emitter}) );
@@ -308,16 +317,9 @@ if ~isempty(data_hom)
         tof_hom = zeros(num_receiver, 1);
         
         for ind_receiver = 1:num_receiver
-            %  disp(ind_receiver);
+           
             if binaries_emitter_receiver(ind_receiver, ind_emitter)
                 
-                if isfinite(para.Cutoff_freq)
-                    
-                    %apply a filter in the frequency domain, not
-                    %recommended
-                    data_hom_emitter(ind_receiver, :) = applyFilter(data_hom_emitter(ind_receiver, :),...
-                        fs, para.Cutoff_freq, 'LowPass', 'ZeroPhase', true, 'TransitionWidth', trans_width_prop);
-                end
                 
                 [tof_hom(ind_receiver)] = timeOfFlightPickingEachSignal(data_hom_emitter(ind_receiver,:),...
                     time_array, T, [TOF_min_ref(ind_receiver, ind_emitter),...
@@ -367,16 +369,8 @@ if ~isempty(data_het)
         tof_het = zeros(num_receiver, 1);
         
         for ind_receiver = 1:num_receiver
-            %  disp(ind_receiver);
+            
             if binaries_emitter_receiver(ind_receiver, ind_emitter)
-                
-                if isfinite(para.Cutoff_freq)
-                    
-                    %apply a filter in the frequency domain, not
-                    %recommended
-                    data_het_emitter(ind_receiver, :) = applyFilter(data_het_emitter(ind_receiver, :),...
-                        fs, para.Cutoff_freq, 'LowPass', 'ZeroPhase', true, 'TransitionWidth', trans_width_prop);
-                end
                 
                 [tof_het(ind_receiver)] = timeOfFlightPickingEachSignal(data_het_emitter(ind_receiver,:),...
                     time_array, T, [TOF_min(ind_receiver, ind_emitter),...

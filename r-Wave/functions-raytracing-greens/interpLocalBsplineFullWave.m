@@ -120,11 +120,12 @@ if ~isempty(coeff)
                     coeff_derivative_y * refractive_indices];
                 
                 if paraxial
+                    
                 % get the the matrix for the second-order derivative of the
                 % refractive index
                 refractive_second_gradient_xy =  coeff_second_derivative_xy * refractive_indices;
                 refractive_second_gradient_target = [coeff_second_derivative_xx * refractive_indices,...
-                    refractive_second_gradient_xy; ...
+                    refractive_second_gradient_xy;...
                     refractive_second_gradient_xy, coeff_second_derivative_yy * refractive_indices];
                 end
                 

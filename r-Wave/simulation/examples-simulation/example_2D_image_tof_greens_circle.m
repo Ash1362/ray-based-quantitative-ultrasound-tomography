@@ -1,4 +1,4 @@
-% Example for the image-reconstruction part of the scenarios in paper 
+% Example for the image-reconstruction part of the scenarios in paper
 % [1] (cf. section References)
 %..........................................................................
 % The Green's inversion approach used in 2 was used in 1 as the benchmark.
@@ -47,7 +47,7 @@
 % https://anastasio.bioengineering.illinois.edu/downloadable-content/oa-breast-database/ [3].
 % The synthetic UST pressure times series used in this study are simulated using the k-Wave
 % toolbox. www.k-Wave.org (v. 1.3. or 1.4.) [4].
-% It was shown in [5] that corrections must be applied on the step for 
+% It was shown in [5] that corrections must be applied on the step for
 % inclusion of source in the k-Wave to simulate the UST signals matching
 % the Green's formula, considering that the solution to the wave equation
 % is unique. To avoid changing the open-source k-Wave toolbox, the pressure time
@@ -201,11 +201,13 @@ dim = 2;
 % In this eaxample script, the purpose is image reconstruction (not validation of
 % ray tracing), and the UST data simulated for all emitter-receiver pairs
 % (not only a single emitter) must be used.
-
 scenario = 'standard';
 
 % the purpose is either 'image_reconstruction',
 purpose = 'image_reconstruction';
+
+% get the detection geomtery
+detection_geom = 'sphere';
 
 % get the Boolean controlling whether the image reconstruction using the Green's
 % approach is performed, or not.
@@ -230,7 +232,6 @@ deconvolve_source = true;
 % are computed from simulated (or loaded) data,
 % or the already computed tofs are used.
 do_calculate_tofs = true;
-
 
 % get the ray-to-grid and grid-to-ray interpolation approach for
 % time-of-flight-based image reconstruction approach
@@ -272,7 +273,7 @@ receiver_downsampling_rate = 1;
 % get the ratio of te number of receivers to the number of emitters
 ratio_receiver_to_emitter = 4;
 
-% get the approach for linearisation. This cab be 'absolute' or
+% get the approach for linearisation. This can be 'absolute' or
 % 'difference'. The latter is deprecated.
 linearisation_approach = 'absolute';
 
@@ -283,7 +284,7 @@ linearisation_approach = 'absolute';
 linear_subproblem_method = 'sart';
 
 % the approach fpr computing the geomterical attenuation, auxiliary: using
-% auxiliary rays, or 'raylinked' (linked rays without using auxiiary rays)
+% auxiliary rays, or 'raylinked' (linked rays without using auxiliary rays)
 attenuation_geom_method = 'auxiliary';
 
 % the approach for tracing auxiliary rays, which will be used for computing
@@ -294,13 +295,12 @@ auxiliary_method = 'paraxial';
 if save_results
     
     % get the directory for saving the mat results
-    results_directory = 'simulation/results/mat_greens/';
+    results_directory = 'results/simulation/2D/greens/';
     
     % make the directory, if it does not exist
     makeDirectory(results_directory);
     
 else
-    
     % allocate an empty variable for the directory
     results_directory = [];
     
@@ -311,11 +311,12 @@ end
 % DEFINE THE SIMULATION SETTINGS AND SIMULATE (OR LOAD) THE PRESSURE UST DATA
 % SETS USING K-WAVE
 %==================================================================
-% get the optional inputs for simulating the pressure data sets using the
-% k-Wave toolbox
+% get the optional inputs for defining the settings for simulation using
+% the k-Wave, or loading the pressure data sets already simulated using the k-Wave
+% toolbox and with the same settings.
 data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spacing_data,...
-    'grid_spacing_reconstruction', grid_spacing_reconstruction, 'cfl', cfl_number,...
-    'transducer_interp_approach', transducer_interp_approach,...
+    'grid_spacing_reconstruction', grid_spacing_reconstruction, 'detection_geom', detection_geom,...
+    'cfl', cfl_number, 'transducer_interp_approach', transducer_interp_approach,...
     'emitter_downsampling_rate', emitter_downsampling_rate,...
     'receiver_downsampling_rate', receiver_downsampling_rate,...
     'time_downsampling_rate', time_downsampling_rate,...
@@ -323,8 +324,8 @@ data_args = {'num_worker_pool', num_worker_pool, 'grid_spacing_data', grid_spaci
 
 % if the purpose is image reconstruction, the noise-contaminated
 % data is used.
-[~, ~, data_noisy, data_ref_noisy, emitter, receiver, kgrid,...
-    medium, simulation_prop, data_simulation_time] =...
+[~, ~, data_noisy, data_ref_noisy, emitter, receiver,...
+    simulation_prop, data_simulation_time] =...
     simulateSettingData(do_data_sim, dim, scenario,...
     purpose, excit_pulse_name, half_grid_size, num_receiver,...
     ratio_receiver_to_emitter, do_absorption, oa_breast_path, machine_name,...
@@ -354,10 +355,8 @@ reconst_args_tof = {'num_worker_pool', num_worker_pool,...
 % speed image iteratively from the time-of-flight data
 [img_tof, recon_grid, ~, ray_initial_angles, out_tof, para_tof] = ...
     reconstructTimeofFlightImage(data_noisy, data_ref_noisy,...
-    kgrid.t_array, emitter, receiver, medium.sound_speed_ref,...
-    simulation_prop.z_offset, kgrid, medium.sound_speed,...
-    simulation_prop.data_path,...
-    reconst_args_tof{:});
+    simulation_prop.t_array, emitter, receiver, simulation_prop.sound_speed_ref,...
+    simulation_prop, simulation_prop.data_path, reconst_args_tof{:});
 
 if save_results
     
@@ -368,38 +367,41 @@ if save_results
     
 end
 
-%%=================================================================
-% RECONSTRUCT THE SOUND SPEED IMAGE USING THE RAY APPROAXIMATION
-% TO HETEROGENEOUS GREENS FUNCTION ITERATIVELY
-%==================================================================
-% get the directories for storing the results associated with the image
-% reconstruction using the Green's approach
-directories_greens = [];
-directories_greens.results_directory = results_directory;
 
-% get the optional inputs
-greens_args = {'num_worker_pool', num_worker_pool,...
-    'optimisation_approach', greens_optimisation_approach,...
-    'absorption_map', absorption_map,...
-    'deconvolve_source', deconvolve_source,...
-    'noise_level', noise_level};
-
-% compute the sound speed image using the ray approximation to
-% the heterogeneous Green's function. The image is
-% reconstructed iteratively from low to high frequencies.
-[img_greens, out_greens, para_greens] = reconstructGreensImage(data_noisy,...
-    recon_grid, emitter, receiver, medium, img_tof, grid_spacing_reconstruction,...
-    ray_initial_angles, kgrid, directories_greens, greens_args{:});
-
-if save_results
+if do_greens_approach
+    %%=================================================================
+    % RECONSTRUCT THE SOUND SPEED IMAGE USING THE RAY APPROXIMATION
+    % TO HETEROGENEOUS GREENS FUNCTION ITERATIVELY
+    %==================================================================
+    % get the directories for storing the results associated with the image
+    % reconstruction using the Green's approach
+    directories_greens = [];
+    directories_greens.results_directory = results_directory;
     
-    % save the results in the given path
-    save([results_directory 'results_' greens_optimisation_approach  '_' absorption_map...
-        '_' num2str(noise_level) 'db'],...
-        'img_greens', 'out_greens', 'para_greens', '-append');
+    % get the optional inputs
+    greens_args = {'num_worker_pool', num_worker_pool,...
+        'optimisation_approach', greens_optimisation_approach,...
+        'absorption_map', absorption_map,...
+        'deconvolve_source', deconvolve_source,...
+        'attenuation_geom_method', attenuation_geom_method,...
+        'auxiliary_method', auxiliary_method,...
+        'noise_level', noise_level...
+        };
+   
+    
+    % compute the sound speed image using the ray approximation to
+    % the heterogeneous Green's function. The image is
+    % reconstructed iteratively from low to high frequencies.
+    [img_greens, out_greens, para_greens] = reconstructGreensImage(data_noisy,...
+        simulation_prop.t_array, recon_grid, emitter, receiver, simulation_prop.sound_speed_ref,...
+        img_tof, ray_initial_angles, simulation_prop, directories_greens, greens_args{:});
+    
+    if save_results
+        
+        % save the results in the given path
+        save([results_directory, 'results_' greens_optimisation_approach,  '_' absorption_map,...
+            '_' num2str(noise_level) 'db'], 'img_greens', 'out_greens', 'para_greens', '-append');
+        
+    end
     
 end
-
-
-
-

@@ -1,10 +1,8 @@
 function [pos, ray_positions, ray_acoustic_length, ray_absorption, ds_final] =...
-    calcRayRungeKutta2ndBsplineFullWave2(refractive, cartesian_position_emitter,...
-    direction, direction_perturbation, xvec, yvec, zvec,...
-    pos_grid_first, pos_grid_end, dx, ds, grid_size, dim, detec_radius, mask,...
-    raytogrid_indices_x, raytogrid_indices_y, raytogrid_indices_z, raytogrid_coeff_matrix,...
-    raytogrid_coeff_derivative_matrix, raytogrid_coeff_second_derivative_matrix,...
-    refractive_nonsmoothed, absorption_coeff, calc_coeffs, auxiliary_ray, auxiliary_method)
+    calcRayRungeKutta2ndBsplineFullWave(ray_interp_coeffs, refractive,...
+    refractive_nonsmoothed, absorption_coeff, cartesian_position_emitter, direction,...
+    direction_perturbation, xvec, yvec, zvec, pos_grid_first, pos_grid_end,...
+    dx, ds, grid_size, dim, detec_geom, mask, calc_coeffs, auxiliary_ray, auxiliary_method)
 %calcRayRungeKutta2ndBsplineFullWave traces a ray, stores the ray-to-grid interpolation
 %coefficients, and integrate the field's parameters along the rays
 %
@@ -13,13 +11,40 @@ function [pos, ray_positions, ray_acoustic_length, ray_absorption, ds_final] =..
 % interplation coefficients for the computed points, given an initial position and an
 % initial direction for the ray. The interpolation coefficients will be stored
 % in a sparse matrix, and will be used for image reconstruction based on time-of-flights.
-% The Cartesinan position of ray's points, together with the accumulated information along the ray,
+% The Cartesian position of ray's points, together with the accumulated information along the ray,
 % will be stored for image reconstruction of the sund speed using Green's
 % inversion approach, which will incorporate the scattering effects into the
 % image reconstruction.
 %
 % INPUTS:
-%       refractive       - disretised refractive index
+%       ray_interp_coeffs   - a struct with fields the direction gradients
+%                           for an interpolation using a'Bilinear'
+%                           approach, or parameters for choosing indices of
+%                           the grid points and their associated coefficients for an
+%                           interpolation using a 'Bspline' approach.
+%                           The fields are:
+%       'refractive_gradient_x' - discretised refractive index gradient along x
+%       'refractive_gradient_y' - discretised refractive index gradient along y
+%       'refractive_gradient_z' - discretised refractive index gradient along z
+%                              using a'Bspline' interpolation, this
+%                              includes the matrices for intertpolation:
+%       'raytogrid_indices_x'   - x indices for B-spline interpolation
+%       'raytogrid_indices_y'   - y indices for B-spline interpolation                                  
+%       'raytogrid_indices_z'   - z indices for B-spline interpolation
+%     'raytogrid_coeff_matrix'  - matrix for calculating B-spline
+%                                 interpolation coefficients of the field
+%     'raytogrid_coeff_derivative_matrix' - matrix for calculating B-spline
+%                                 interpolation coefficients for the first-order 
+%                                 gradient of the field
+%     'raytogrid_coeff_second_derivative_matrix' - matrix for calculating B-spline
+%                                 interpolation coefficients for the second_order 
+%                                 gradient of the field
+%       refractive          - the smoothed refractive index sued for
+%                             computing rays' trajectories
+%       refractive_nonsmoothed - the nonsmoothed refractive index matrix used
+%                                for integration along the linked rays
+%       absorption_coeff       - the nonsmoothed absorption coefficient matrix
+%                                used for integration along the linked rays
 %       cartesian_position_emitter - a dim x 1 Cartesian position of the emitter
 %       direction        - a dim x 1 vector of the cartesian initial direction along
 %                         the ray
@@ -35,27 +60,13 @@ function [pos, ray_positions, ray_acoustic_length, ray_absorption, ds_final] =..
 %       grid_size        - the grid size
 %       dim              - the dimension of the medium
 %       mask             - a binary mask used for ray tracing
-%      raytogrid_indices_x -  x indices for B-spline interpolation
-%      raytogrid_indices_y -  y indices for B-spline interpolation
-%      raytogrid_indices_z -  z indices for B-spline interpolation
-%      raytogrid_coeff_matrix     - matrix for calculating B-spline
-%                                   interpolation coefficients of the field
-%      raytogrid_coeff_derivative_matrix - matrix for calculating B-spline
-%                                         interpolation coefficients of the
-%                                         directional gradients of the field
-%      refractive_nonsmoothed - the original (nonsmoothed) refractive index
-%                                for integrating the field's parameters
-%                                along the rays
-%      absorption_coeff       - the matrix of absorption coefficient. If it
-%                              is set a scaler, the acoustic absorption is
-%                              fully neglected.
-%      calc_coeffs           - a boolean controlling whether the
-%                               interpolation coefficients are stored or
-%                               not (This is often set true only for the optimal
-%                               linked ray after solving the ray linking problem.)
-%       auxiliary_ray        - Boolean indicating whether the ray to be
-%                              traced is auxiliary ray or not
-%       auxiliary_method     - the method for tracing the auxiliary rays
+%       calc_coeffs      - a boolean controlling whether the
+%                          parameters of the Green's function are
+%                          computed or not. This is set true for the
+%                          linked (optimal) ray.
+%       auxiliary_ray    - Boolean indicating whether the ray to be
+%                          traced is auxiliary ray or not
+%       auxiliary_method - the method for tracing the auxiliary rays
 % OPTIONAL INPUTS:
 %
 % OUTPUTS:
@@ -74,10 +85,26 @@ function [pos, ray_positions, ray_acoustic_length, ray_absorption, ds_final] =..
 % ABOUT:
 %       author          - Ashkan Javaherian
 %       date            - 30.12.2019
-%       last update     - 30.12.2019
+%       last update     - 05.04.2023
 %
-% This script is part of the r-Wave Tool-box.
+% This script is part of the r-Wave toolbox.
 % Copyright (c) 2022 Ashkan Javaherian
+
+
+
+if isfield(detec_geom, 'line_coeff')
+    
+    % set the sign for the terminating criterion for ray tracing
+    if  detec_geom.line_coeff(1:2) * cartesian_position_emitter(1:2) - ...
+            detec_geom.line_coeff(3) < 0
+        sgn = 1;
+    else
+        sgn = -1;
+    end
+    
+end
+
+
 
 
 paraxial = auxiliary_ray & strcmp(auxiliary_method, 'paraxial');
@@ -113,6 +140,32 @@ if ~paraxial && auxiliary_adjoint_paraxial
 end
 
 
+% get the interpolation parameters
+if ~isfield(ray_interp_coeffs, 'refractive_gradient_x')
+    
+    % the indices of the grid points for interpolation along the Cartesian
+    % coordinates
+    raytogrid_indices_x = ray_interp_coeffs.raytogrid_indices_x;
+    raytogrid_indices_y = ray_interp_coeffs.raytogrid_indices_y;
+    raytogrid_indices_z = ray_interp_coeffs.raytogrid_indices_z;
+    
+    % the refractive index
+    raytogrid_coeff_matrix = ray_interp_coeffs.raytogrid_coeff_matrix;
+    
+    % the first-order gradient of the refractive index
+    raytogrid_coeff_derivative_matrix = ray_interp_coeffs.raytogrid_coeff_derivative_matrix;
+    
+    % the second-order gradient of the refractive index
+    raytogrid_coeff_second_derivative_matrix = ray_interp_coeffs.raytogrid_coeff_second_derivative_matrix;
+    
+else
+     
+    % give an error
+    error(['For the greens approach, the grid-to-ray interpolation must be'...
+            'done using the Bspline approach.'])   
+    
+end    
+
 
 % remove the last index from the size of the grid (not used)
 grid_size = grid_size(1: dim-1);
@@ -138,7 +191,7 @@ else
     pos = cartesian_position_emitter;
     
     % set the point index 0 such that the stopping criterion of the while loop
-    % is always satisfied.
+    % is always satisfied for the starting point.
     point_index = 2;
     
     % get the receiver index
@@ -171,7 +224,7 @@ if calc_coeffs || auxiliary_ray
         % get the first column of a dim * num_ray_pos vector for storing the
         % perturbed positions because of perturbation to the initial
         % direction
-        ray_positions_perturbation = [0; 0];
+        ray_positions_perturbation = zeros(dim, 1);
         
     else
         
@@ -239,10 +292,10 @@ if ~auxiliary_adjoint_paraxial
     %pos = pos_previous + ds/2 * (q1_x + q2_x);
 
     % get the update direction for the position
-    pos_direction = 2 * (q1_x+q2_x)/norm(q1_x+q2_x);
+    direction_corrected = (q1_x+q2_x)/norm(q1_x+q2_x);
     
     % update the current position of the ray using a trapezoid rule
-    pos = pos_previous + ds/2 * pos_direction;
+    pos = pos_previous + ds * direction_corrected;
     
     
 else
@@ -267,7 +320,7 @@ if paraxial
     
     % initialise the direction perturbation component of q1
     % consider that the initial perturbation vector is [0,0]^T.
-    q1_perturb_k = term_scalar' *  direction_perturbation;
+    q1_perturb_k = term_scalar *  direction_perturbation;
     
     % calculate the second term for updating the perturbation direction vector.
     % consider that the initial perturbation vector is [0,0]^T.
@@ -282,23 +335,23 @@ if paraxial
     term_scalar_2 = 1/n_2^2 * direction_2  * dn_2'; 
     
      % calculate the perturbation position component of q2
-    q2_perturb_x = - term_scalar_2 * pos_perturb_2 + 1/n_2 * direction_perturbation_2;
-    
+    q2_perturb_x = - term_scalar_2' * pos_perturb_2 + 1/n_2 * direction_perturbation_2;
     
     % get the current position perturbation
-    pos_perturb_previous = [0; 0];
+    pos_perturb_previous = zeros(dim, 1);
 
     % update the position perturbation of the ray based on the trapezoid rule
-    pos_perturb =  ds/2 * (q1_perturb_x + q2_perturb_x);
+    pos_perturb = ds/2 * (q1_perturb_x + q2_perturb_x);
    
-    
 end
 
 % the ray must be terminated inside the detection surface
 % if the ray is paraxial adjoint ray, the ray is stopped on the index associated with the last point on the ray 
-while (norm(pos) - detec_radius <= -1e-10    && ...
-            all(pos > pos_grid_first + dx & pos < pos_grid_end - 2 * dx))  &&  (point_index < lastpoint_index)
-          
+while   ((isfield(detec_geom, 'radius_circle') && norm(pos) - detec_geom.radius_circle <= 1e-10) ||...
+        (isfield(detec_geom, 'radius_cylinder') && norm(pos(1:2)) - detec_geom.radius_cylinder <= 1e-10) ||...
+        (isfield(detec_geom, 'line_coeff') && sgn * (detec_geom.line_coeff(1:2) * pos(1:2) - ...
+        detec_geom.line_coeff(3)) <= 1e-10))...
+        && all(pos > pos_grid_first + dx & pos < pos_grid_end - 2 * dx)  &&  (point_index < lastpoint_index)
     
         if ~auxiliary_adjoint_paraxial
             
@@ -318,7 +371,7 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         
         % update the the direction perturbation component of q2
         q2_perturb_k =  (-1/n_2 * (dn_2 * dn_2') + d2n_2) * pos_perturb_2 +...
-           term_scalar_2' * direction_perturbation_2;
+           term_scalar_2 * direction_perturbation_2;
         
         % update the direction perturbation based on the Trapezoid rule
         direction_perturbation = direction_perturbation...
@@ -374,7 +427,7 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         
     end
     
-    
+ 
     % normalise direction - the direction along the ray must be a unit vector
     % multiplied by refractive index
     direction = n/norm(direction) * direction;
@@ -405,11 +458,11 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
     end
     
     if ~auxiliary_adjoint_paraxial
-        
+     
         % normalise direction - the direction along the ray must be a unit vector
         % multiplied by the refractive index
         direction_2 = n_2/norm(direction_2) * direction_2;
-        
+     
         % calculate the position component of q2
         q2_x = 1/n_2 * direction_2;
         
@@ -420,13 +473,11 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         % pos = pos_previous + ds/2 * (q1_x + q2_x);
         
         % get the update direction for the position
-        pos_direction = 2 * (q1_x+q2_x)/norm(q1_x+q2_x);
+        direction_corrected = (q1_x+q2_x)/norm(q1_x+q2_x);
         
         % update the current position of the ray using a trapezoid rule
-        pos = pos_previous + ds/2 * pos_direction;
+        pos = pos_previous + ds * direction_corrected;
     
-        
-        
     else
         
         % get the current position
@@ -434,7 +485,7 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         
         % increase the index of ray point by 1
         point_index = point_index + 1;
-        
+         
     end
 
     if paraxial
@@ -444,11 +495,11 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         term_scalar = 1/n^2 * direction * dn';
         
         % calculate the perturbation position component of q1
-        q1_perturb_x = - term_scalar * pos_perturb + 1/n * direction_perturbation;
+        q1_perturb_x = - term_scalar' * pos_perturb + 1/n * direction_perturbation;
         
         % update the direction perturbation component of q1
         q1_perturb_k = (-1/n * (dn * dn') + d2n) * pos_perturb +...
-            term_scalar' * direction_perturbation;
+            term_scalar * direction_perturbation;
         
         % calculate the second term for updating the perturbation direction vector.
         direction_perturbation_2 = direction_perturbation + ds * q1_perturb_k;
@@ -461,7 +512,7 @@ while (norm(pos) - detec_radius <= -1e-10    && ...
         term_scalar_2 = 1/n_2^2 * direction_2 * dn_2'; 
         
         % calculate the perturbation position component of q2
-        q2_perturb_x = - term_scalar_2 * pos_perturb_2 + 1/n_2 * direction_perturbation_2;
+        q2_perturb_x = - term_scalar_2' * pos_perturb_2 + 1/n_2 * direction_perturbation_2;
         
         % get the current position perturbation
         pos_perturb_previous = pos_perturb;
@@ -480,11 +531,13 @@ end
 if ~auxiliary_ray || paraxial
     
     if ~auxiliary_adjoint_paraxial
+        
     % if the ray is not auxiliary, or the ray is an auxiliary ray which is
     % paraxial, the last point of the ray position must be on the detection
     % ring (surface)
-    [pos , ds_final] = calcIntersectBall(pos_previous, pos_direction,...
-        detec_radius);
+    [pos, ds_final] = calcLineIntersect(pos_previous, direction_corrected,...
+        detec_geom);
+    
     else
         
         % compute the final ray spacing from the last two points along the
@@ -494,9 +547,9 @@ if ~auxiliary_ray || paraxial
     end
     
     if paraxial
-        
+    
         % update the last position perturbation of the ray based on the trapezoid rule
-        pos_perturb =  pos_perturb_previous + ds_final/2 * (q1_perturb_x + q2_perturb_x);
+        pos_perturb = pos_perturb_previous + ds_final/2 * (q1_perturb_x + q2_perturb_x);
         
     end
     
@@ -508,7 +561,7 @@ else
 end
 
 
-if all (pos > pos_grid_first + dx  &  pos < pos_grid_end - 2 * dx )
+if all (pos > pos_grid_first + dx  &  pos < pos_grid_end - 2 * dx)
     
     
     % calculate the interpolation coefficients, interpolated parameters on the ray's point,

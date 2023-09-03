@@ -195,15 +195,20 @@ if norm_res_initial_guess > varepsilon
     % direction and its residual by those for the
     % initial guess
     if norm_res > norm_res_initial_guess
+        
         polar_initial_direction = polar_direction_initial_guess;
-    end
-    
-    % calculate the interpolation coefficients for the linked ray
+   
+        % allocate empty variable for interpolation coefficients
+        interp_coeff_vec = [];
+    else   
+        
+    % If ray linking is successful, compute the interpolation coefficients for the linked ray
     [ ~ , interp_coeff_vec, cartesian_pos_endpoint] = feval(solve_ray, polar_initial_direction,...
         polar_direction_receiver, true);
     
+    end
+    
 end
-
 
 
 end

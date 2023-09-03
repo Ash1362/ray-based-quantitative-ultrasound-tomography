@@ -77,7 +77,7 @@ switch trans_geom
         
         switch dim
             case 2
-                %  offgridpoint_args = {'BLIType', 'exact'};
+                % offgridpoint_args = {'BLIType', 'exact'};
                 offgridpoint_args = {'BLITolerance', 0.001};
             case 3
                 offgridpoint_args = {'BLITolerance', 0.1};

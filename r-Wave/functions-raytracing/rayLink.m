@@ -1,8 +1,8 @@
 function [system_matrix_single_emitter, optimal_polar_initial_direction_allreceivers,...
-    cartesian_position_endpoint_allreceivers, num_rays_allreceivers] = rayLink(ray_fields_params,...
+    cartesian_position_endpoint_allreceivers, num_rays_allreceivers] = rayLink(ray_interp_coeffs,...
     refractive, cartesian_position_emitter, cartesian_position_receivers, polar_direction_allreceivers,...
     polar_initial_direction_allreceivers, xvec, yvec, zvec, pos_grid_first,...
-    pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_radius, mask, para)
+    pos_grid_end, grid_spacing, ray_spacing, grid_size, dim, detec_geom, mask, para)
 %RAYLINK constructs the system matrix for a single emitter
 %
 % DESCRIPTION:
@@ -19,10 +19,10 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %
 %
 % INPUTS:
-%       ray_fields_params     - a struct containing the specified variables for ray tracing
-%                              using a 'Bilinear' intrerpolation, this includes the directional
-%                              gradients of the refrective index
-%                              distribution:
+%       ray_interp_coeffs      - a struct containing the specified variables for ray tracing
+%                               using a 'Bilinear' intrerpolation, this includes the directional
+%                               gradients of the refrective index
+%                               distribution:
 %       'refractive_gradient_x' - discretised refractive index gradient along x
 %       'refractive_gradient_y' - discretised refractive index gradient along y
 %       'refractive_gradient_z' - discretised refractive index gradient along z
@@ -36,6 +36,8 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %     'raytogrid_coeff_derivative_matrix' - matrix for calculating B-spline
 %                                 interpolation coefficients of the directional
 %                                 gradientsof the field
+%       refractive              - the refrcative index distribution on which the rays
+%                                 are traced
 %       cartesian_position_emitter - a dim x 1 cartesian position of the emitter
 %       cartesian_position_receivers - a dim x num_receiver cartesian
 %                                       position of all receivers
@@ -51,15 +53,23 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %                               the grid
 %       pos_grid_end         - a dim x 1 Cartesian position of the end index of
 %                              the grid
-%       dx                   - a scalar representing the grid spacing, the same
+%       grid_spacing         - a scalar representing the grid spacing, the same
 %                              along all the Cartesian coordinates [m]
 %       ray_spacing          - a saclar representing the ray spacing [m]
 %       grid_size            - the size of the grid
 %       dim                  - the dimension of the medium
-%       mask                 - a binary mask with the same size as the grid
-%                              for an indication to the grid points
-%                              associated with inhomogeneities (object)
-%       ray_spacing          - the spacing along the ray [m]
+%       detec_geom           - the geometry of the detection surface
+%                              with fields:
+%      'radius_circle'       - the radius [m] of the circular (2D) or 
+%                              hemi-spherical (3D) detection surface, or
+%      'radius_cylinder'     - the radius [m] of the cylinder in x-y plane,
+%                              or
+%      'line_coeff'          - the coefficients [a,b,c] for equation ax+by=c of
+%                              line or an intersection of a plane with x-y
+%                              plane
+%       mask                 - a binary mask for grid points included in
+%                               ray tracing, and those for which the
+%                               interpolation coefficients are stored
 %       para                 - a struct containing the fields:
 %       'varepsilon'         - the stopping criterion for ray linking inverse problem
 %       'max_iter'           - the maximum number of iterations for ray
@@ -104,7 +114,7 @@ function [system_matrix_single_emitter, optimal_polar_initial_direction_allrecei
 %       last update     - 30.12.2019
 %
 % This function is part of the r-Wave Toolbox.
-% Copyright (c) 2020 Ashkan Javaherian
+% Copyright (c) 2022 Ashkan Javaherian
 
 
 
@@ -154,10 +164,10 @@ num_rays_allreceivers = zeros(num_receiver, 1);
 % interception of the point with respect the centre of receiver. Only for
 % the linked (optimal ray), this function is used for computing the
 % ray-to-grid interpolation coefficients along the linked ray.
-solve_ray = @(polar_initial_direction, polar_direction_receiver, calc_coeffs)calcRayParameters(...
-    refractive, ray_fields_params, cartesian_position_emitter, polar_direction_receiver,...
+solve_ray = @(polar_initial_direction, polar_direction_receiver, calc_coeffs)calcRayLinkForward(...
+    ray_interp_coeffs, refractive, cartesian_position_emitter, polar_direction_receiver,...
     polar_initial_direction, xvec, yvec, zvec, pos_grid_first, pos_grid_end, grid_spacing, ray_spacing,...
-    grid_size, dim, detec_radius, mask, calc_coeffs, para.raylinking_method, para.raytracing_method);
+    grid_size, dim, detec_geom, mask, calc_coeffs, para.raylinking_method, para.raytracing_method);
 
 %% ========================================================================
 % INITIAL GUESS

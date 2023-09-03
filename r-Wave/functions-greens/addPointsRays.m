@@ -1,15 +1,16 @@
 function [ray_position_extrapolated] = addPointsRays(ray_position, receiver_indices,...
     num_extrapolation_points, num_ray)
-%ADDPOINTSRAYS adds a number of points to the rays using a linear
+%ADDPOINTSRAYS adds a number of points to the end of rays using a linear
 %extrapolation
 %
 %     DESCRIPTION:
-%       addPointsRays add a given number of points to the rays using a
-%       linear extrapolation. The spacing of the added points equals the 
-%       ray spacing. This is required for computing the derivative of 
-%       the last rays' points with respect to the initial angle, because 
-%       the auxilary rays may not be large enough in arc length (may be shorter
-%       than the main rays), and must be increased in arc length. 
+%       addPointsRays adds a given number of points to the end point of rays using a
+%       linear extrapolation. The spacing of the added points equals the ray spacing.
+%       This is done for computing the derivative of the last rays' points with respect
+%       to the initial angle or with respect to the arc length, because the auxilary rays
+%       may have fewer points than the linked (reference) ray, and therefore, the rays'
+%       Jacobian on the last points of the linked (reference) ray cannot be computed
+%       without increase of points on the auxiliary rays.
 
 %
 % USAGE:
@@ -19,11 +20,10 @@ function [ray_position_extrapolated] = addPointsRays(ray_position, receiver_indi
 %       ray_position             - the position of the points on the rays
 %                                  in a single Cartesian coordinate
 %       receiver_indices         - a vector containing the index of columns
-%                                 correponding to the reception points in 
-%                                 matrices containing the rays' parameters,
-%                                 eg. ray_poition_x.... 
+%                                  correponding to the reception points in 
+%                                  matrices containing the rays' parameters
 %       num_extrapolation_points - a vector containing the number of points
-%                                  to be added to each ray
+%                                  must be added to the last point of each ray
 %       num_ray                  - the number of rays
 % OUTPUTS:
 %       ray_position_extrapolated - the position of the points on the corrected rays
@@ -32,17 +32,17 @@ function [ray_position_extrapolated] = addPointsRays(ray_position, receiver_indi
 % ABOUT:
 %       author          - Ashkan Javaherian
 %       date            - 30.03.2020
-%       last update     - 30.03.2020
+%       last update     - 26.04.2023
 %
-% This script is part of the r-Wave Tool-box 
+% This script is part of the r-Wave toolbox 
 % Copyright (c) 2022 Ashkan Javaherian
 
 ray_position_extrapolated = ray_position;
 
 for ind_ray = 1:num_ray
     
-    % get the index of the last point on the ray (the point associated with
-    % the reception point that has been shifted for correcting the ray spacing)
+    % get the index of the last point on the ray, i.e. the reception point
+    % which has been shifted forward for correcting the ray spacing
     receiver_index = receiver_indices(ind_ray);
     
     % add a given number of points beyond the last point using a linear

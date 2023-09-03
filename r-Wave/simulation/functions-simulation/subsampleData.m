@@ -67,24 +67,24 @@ switch mode
         % subsample the noise contaminated data (used for image reconstruction)
         % along the receivers
         if ~isempty(data_noisy)
-        data_noisy = data_noisy(1:sampling_factor:end, :, :);
+        data_noisy = data_noisy(sampling_factor:sampling_factor:end, :, :);
         end
         if ~isempty(data_ref_noisy)
-        data_ref_noisy = data_ref_noisy(1:sampling_factor:end, :, :);
+        data_ref_noisy = data_ref_noisy(sampling_factor:sampling_factor:end, :, :);
         end
         
         if ~isempty(transducer)
             
         % subsample the receivers
-        transducer.positions = transducer.positions(:, 1:sampling_factor:end);
+        transducer.positions = transducer.positions(:, sampling_factor:sampling_factor:end);
         end
         
         % subsample the original clean data along the receivers
         if ~isempty(data)
-            data = data(1:sampling_factor:end, :, :);
+            data = data(sampling_factor:sampling_factor:end, :, :);
         end
         if ~isempty(data_ref)
-            data_ref = data_ref(1:sampling_factor:end, :, :);
+            data_ref = data_ref(sampling_factor:sampling_factor:end, :, :);
         end
         
     case 'emitter'
@@ -92,24 +92,24 @@ switch mode
         % subsample the noise contaminated data (used for image reconstruction)
         % along the emitters
         if ~isempty(data_noisy)
-            data_noisy = data_noisy(:, :, 1:sampling_factor:end);
+            data_noisy = data_noisy(:, :, sampling_factor:sampling_factor:end);
         end
         if ~isempty(data_ref_noisy)
-            data_ref_noisy = data_ref_noisy(:, :, 1:sampling_factor:end);
+            data_ref_noisy = data_ref_noisy(:, :, sampling_factor:sampling_factor:end);
         end
         
         if ~isempty(transducer)
             
         % subsample the emitters
-        transducer.positions = transducer.positions(:, 1:sampling_factor:end);
+        transducer.positions = transducer.positions(:, sampling_factor:sampling_factor:end);
         end
         
         % subsample the original clean data along the emitters
         if ~isempty(data)
-            data = data(:, :, 1:sampling_factor:end);
+            data = data(:, :, sampling_factor:sampling_factor:end);
         end
         if ~isempty(data_ref)
-            data_ref = data_ref(:, :, 1:sampling_factor:end);
+            data_ref = data_ref(:, :, sampling_factor:sampling_factor:end);
         end
     case 'time'
         

@@ -1,6 +1,6 @@
-function [pos, interp_coeff_vec] = calcRayCharacteristics(refractive, ray_fields_params, cartesian_position_emitter,...
-    direction, xvec, yvec, zvec, pos_grid_first, pos_grid_end, dx, ds, grid_size,...
-    dim, detec_radius, mask, calc_coeffs)
+function [pos, interp_coeff_vec] = calcRayCharacteristics(refractive, ray_interp_coeffs,...
+    cartesian_position_emitter, direction, xvec, yvec, zvec, pos_grid_first, pos_grid_end,...
+    dx, ds, grid_size, dim, detec_geom, mask, calc_coeffs)
 % CALCRAYCAHARCTERISTICS traces a ray using the method of Charctersitics,
 % and stores the coefficients for the ray-to-grid interpolation.
 %
@@ -24,7 +24,7 @@ function [pos, interp_coeff_vec] = calcRayCharacteristics(refractive, ray_fields
 %
 % INPUTS:
 %       refractive        - the refractive index on the grid points
-%       ray_fields_params - a struct with fields the direction gradients
+%       ray_interp_coeffs - a struct with fields the direction gradients
 %                           for an interpolation using a'Bilinear'
 %                           approach, or parameters for choosing indices of
 %                           the grid points and their associated coefficients for an
@@ -58,14 +58,21 @@ function [pos, interp_coeff_vec] = calcRayCharacteristics(refractive, ray_fields
 %       ds               - a scalar representing the ray spacing [m]
 %       grid_size        - the size of the grid
 %       dim              - the number of dimensions of the grid
-%       detec_radius     - if it is scalar value, the radius of the detection
-%                          ring (2D), or detection surface(3D), if it is
-%                          string '1', or '2', it will show the scenario
-%                          for testing the ray tracing algorithm using a
-%                          Maxwell fish-eye lens phantom. The scenario '1'
-%                          and '2' is for measuring the accuracy in computing the
-%                          acoustic length, and deviation of the rays'
-%                          trajectory from an expected circular trajectory.
+%       detec_geom       - a struct defining the geometry of the detection
+%                          surface with fields:
+%      'radius_circle'   - the radius [m] of the circular (2D) or 
+%                          hemi-spherical (3D) detection surface, or
+%      'radius_cylinder' - the radius [m] of the cylinder in x-y plane, or
+%      'line_coeff'      - the coefficients [a,b,c] for equation ax+by=c of
+%                          line or an intersection of a plane with x-y
+%                          plane, or
+%                          a char wich can be either '1', or '2', and
+%                          determines the scenario for testing the ray tracing
+%                          algorithm using a Maxwell fish-eye lens phantom. The
+%                          scenarios '1' and '2' is for measuring the accuracy
+%                          in computing the acoustic length, and deviation of the rays'
+%                          trajectory from an expected circular trajectory,
+%                          respectively.
 %       mask             - a binary mask used for calculating the
 %                          coefficients. The sound speed ouside the binary
 %                          mask is assumed homogeneous water.
@@ -98,28 +105,28 @@ function [pos, interp_coeff_vec] = calcRayCharacteristics(refractive, ray_fields
 
 % get the Boolean controlling whether the task is testing ray tracing, or
 % it is construction of the system matrix for image reconstruction
-switch class(detec_radius)
-    case 'double'
+switch class(detec_geom)
+    case 'struct'
         test_raytracing = false;
     case 'char'
         test_raytracing = true;
-        if ~strcmp(detec_radius, {'1', '2'})
+        if ~strcmp(detec_geom, {'1', '2'})
             error('The scenario must be a string as 1 or 2.')
         end
 end
 
 
-if isfield(ray_fields_params, 'refractive_gradient_x')
+if isfield(ray_interp_coeffs, 'refractive_gradient_x')
     
     % get the grid-to-ray interpolation method
     interp_method = 'Bilinear';
     
     % get the gradient of the refractive index field along the x coordinate
-    refractive_gradient_x = ray_fields_params.refractive_gradient_x;
+    refractive_gradient_x = ray_interp_coeffs.refractive_gradient_x;
     % get the gradient of the refractive index field along the x coordinate
-    refractive_gradient_y = ray_fields_params.refractive_gradient_y;
+    refractive_gradient_y = ray_interp_coeffs.refractive_gradient_y;
     % get the gradient of the refractive index field along the x coordinate
-    refractive_gradient_z = ray_fields_params.refractive_gradient_z;
+    refractive_gradient_z = ray_interp_coeffs.refractive_gradient_z;
     
 else
     
@@ -127,17 +134,17 @@ else
     interp_method = 'Bspline';
     
     % get parameters for the Bspline interpolation
-    raytogrid_indices_x = ray_fields_params.raytogrid_indices_x;
-    raytogrid_indices_y = ray_fields_params.raytogrid_indices_y;
-    raytogrid_indices_z = ray_fields_params.raytogrid_indices_z;
-    raytogrid_coeff_matrix = ray_fields_params.raytogrid_coeff_matrix;
-    raytogrid_coeff_derivative_matrix = ray_fields_params.raytogrid_coeff_derivative_matrix;
+    raytogrid_indices_x = ray_interp_coeffs.raytogrid_indices_x;
+    raytogrid_indices_y = ray_interp_coeffs.raytogrid_indices_y;
+    raytogrid_indices_z = ray_interp_coeffs.raytogrid_indices_z;
+    raytogrid_coeff_matrix = ray_interp_coeffs.raytogrid_coeff_matrix;
+    raytogrid_coeff_derivative_matrix = ray_interp_coeffs.raytogrid_coeff_derivative_matrix;
     
 end
 
 
 if calc_coeffs
-    if ~test_raytracing || strcmp(detec_radius, '1')
+    if ~test_raytracing || strcmp(detec_geom, '1')
         
         % allocate a sparse vector for storing the interpolation coefficients
         interp_coeff_vec = sparse(prod(grid_size), 1);
@@ -154,7 +161,7 @@ pos = cartesian_position_emitter;
 
 
 if test_raytracing
-    switch detec_radius
+    switch detec_geom
         case '1'
             if dim == 2
                 cartesian_position_emitter = -cartesian_position_emitter;
@@ -188,7 +195,7 @@ else
     
     % integrate the refractive index along the ray to calculate the
     % acoustic length, if requested
-    if calc_coeffs   &&  ~strcmp(detec_radius, '2')
+    if calc_coeffs   &&  ~strcmp(detec_geom, '2')
         interp_coeff_vec(indices) = interp_coeff_vec(indices) + 1/2 * coeff';
     end
 end
@@ -213,7 +220,7 @@ pos = pos_previous + ds/n * direction;
 
 
 
-if strcmp(detec_radius, '2')
+if strcmp(detec_geom, '2')
     
     % get the position (interp_coeff_vec is used as position for this
     % case.)
@@ -227,10 +234,13 @@ end
 % last point is smaller than ray spacing.
 % For the latter termination criterion, the B-spline interpolation, for which the number of
 % required neighboring grid points are more than Bilinear is considered.
-while (test_raytracing && norm(pos - cartesian_position_emitter) > ds - (1e-10)  &&...
-        all(pos > pos_grid_first + dx & pos < pos_grid_end - 2 * dx)) ||...
-        (~test_raytracing &&  norm(pos) - detec_radius <= 1e-10    &&...
-        all(pos > pos_grid_first + dx & pos < pos_grid_end - 2 * dx))
+while  ((test_raytracing && norm(pos - cartesian_position_emitter) > ds - (1e-10) ) ||...
+        (~test_raytracing &&...
+        ((isfield(detec_geom, 'radius_circle') && norm(pos) - detec_geom.radius_circle <= 1e-10 ) ) ||...
+        (isfield(detec_geom, 'radius_cylinder') && norm(pos(1:2)) - detec_geom.radius_cylinder <= 1e-10) ||...
+        (isfield(detec_geom, 'line_coeff') && sgn * (detec_geom.line_coeff(1:2) * pos(1:2) - ...
+        detec_geom.line_coeff(3) ) <= 1e-10  ))) &&...
+        all(pos > pos_grid_first + dx & pos < pos_grid_end - 2 * dx)
     
     % compute the interpolation coefficients, their corresponding indices
     % on the grid. Then use them for approximating the refractive index and the
@@ -255,7 +265,7 @@ while (test_raytracing && norm(pos - cartesian_position_emitter) > ds - (1e-10) 
         
         % integrate the refractive index along the ray to calculate the
         % acoustic length, if requested
-        if calc_coeffs && ~strcmp(detec_radius, '2')
+        if calc_coeffs && ~strcmp(detec_geom, '2')
             interp_coeff_vec(indices) = interp_coeff_vec(indices) + coeff';
         end
     end
@@ -273,7 +283,7 @@ while (test_raytracing && norm(pos - cartesian_position_emitter) > ds - (1e-10) 
     % update the current position of the ray
     pos = pos_previous + ds/n * direction;
     
-    if strcmp(detec_radius, '2')
+    if strcmp(detec_geom, '2')
         
         % get the position
         interp_coeff_vec = [interp_coeff_vec, pos];
@@ -289,7 +299,7 @@ if test_raytracing
     % correct the last ray spacing
     ds_final = norm(pos - pos_previous);
     
-    if strcmp(detec_radius, '2')
+    if strcmp(detec_geom, '2')
         
         % get the position
         interp_coeff_vec(:, end) = pos;
@@ -299,13 +309,15 @@ if test_raytracing
 else
     
     %  the last point must be on the detection surface
-    [pos , ds_final] = calcIntersectBall(pos_previous, 1/n * direction, detec_radius);
+    [pos , ds_final] = calcLineIntersect(pos_previous, 1/n * direction,...
+        detec_geom);
+    
 end
 
 
 if calc_coeffs
     
-    if ~strcmp(detec_radius, '2')
+    if ~strcmp(detec_geom, '2')
         
         % multiply by the ray spacing to get the integral of the refractive index
         % (acoustic length) along the ray

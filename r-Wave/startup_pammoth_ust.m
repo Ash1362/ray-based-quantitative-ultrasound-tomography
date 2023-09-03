@@ -18,9 +18,15 @@ addpath(genpath(root_path))
 
 % Get the main directory for the Pammoth data
 % Get the machine name
-[~, machine_name] = system('hostname');
+% [~, machine_name] = system('hostname');
+
+% set the machine name a local machine (You can use it unchanged, if you
+% are using your local pc.
+machine_name = 'ashkan';
+
 
 if any(strcmp(machine_name(1:end-1), {'kinsler','nyborg'}))
+    
     % For BUG servers, choose the following path
     % specify the main path for the data 
     main_path = '/mnt/Pammoth/Data/PAM3_measurements/';

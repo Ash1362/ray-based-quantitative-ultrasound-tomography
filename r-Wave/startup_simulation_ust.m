@@ -51,7 +51,7 @@ else
     
     % A directory for saving and later loading the data must be specified by the user.  
     % For example, the user could create a folder data in the current folder
-    res_path = 'simulation/data/';
+    res_path = 'data/simulation/';
     
     % make the directory for saving and later loading the data 
     makeDirectory(res_path);
@@ -70,7 +70,7 @@ else
     % by setting oa_breast_path nan, the breast phanstom is loaded from the
     % local directory
     % oa_breast_path = nan;
-    oa_breast_path = 'simulation/data/phantom/OA-BREAST/';
+    oa_breast_path = 'data/simulation/phantom/OA-BREAST/';
     
 end
 
@@ -82,7 +82,7 @@ addpath(kwave_path)
 % smaller memory, e.g., phantom,... . By default, the same directory name is used
 % for res_path and local_res_path, if the user is not using UCL's servers,
 % 'nyborg' or 'kinsler', but the user may like to adjust the paths.
-local_res_path = 'simulation/data/';
+local_res_path = 'data/simulation/';
 
 % make the directory for saving the data on the local machine, or
 % verify if the local directory already exists
@@ -105,10 +105,9 @@ disp(['This toolbox uses k-wave toolbox for wave simulations. Please read: http:
     'wave-fields," J. Biomed. Opt., vol. 15, no. 2, p. 021314, 2010.'])
 
 % the off-grid toolbox
-%disp(['This toolbox uses off-grid toolbox. Please cite:'...
-%    'E. S. Wise, B. T. Cox, J. Jaros, B. E. Treeby, Representing arbitrary acoustic source and sensor distributions in'...
-%    'Fourier collocation methods, J. Acoust. Soc. of Am., vol. 146, no. 1, pp. 278-288, 2019.'])
+% disp(['This toolbox uses off-grid toolbox. Please cite:'...
+% 'E. S. Wise, B. T. Cox, J. Jaros, B. E. Treeby, Representing arbitrary acoustic source and sensor distributions in'...
+% 'Fourier collocation methods, J. Acoust. Soc. of Am., vol. 146, no. 1, pp. 278-288, 2019.'])
 
-% messages informing the users about the original materials used for developing this
-% toolbox
+
 

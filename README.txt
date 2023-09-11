@@ -56,7 +56,7 @@ ____________________________________________________________________________
 Download the folder ''simulation.zip'' via the link:
 https://zenodo.org/record/8330926 [7] 
 
-Add the folder ''data_ust_kWave_transmission'' to the path:
+Unzip and add the folder ''simulation.zip'' to the path:
 .../r-Wave/data/simulation/...
 
 This folder includes the ultrasound data simulated by the k-Wave toolbox. Alternatively, the user can set ''data_sim = true;'' in the

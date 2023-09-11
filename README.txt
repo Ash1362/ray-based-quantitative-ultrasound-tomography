@@ -53,8 +53,8 @@ A) SIMULATION STUDIES
 ____________________________________________________________________________
 
 1) Get access to the UST data
-Download the folder ''data_ust_kWave_transmission'' via the link:
-https://doi.org/10.5281/zenodo.7717290 [7] 
+Download the folder ''simulation.zip'' via the link:
+https://zenodo.org/record/8330926 [7] 
 
 Add the folder ''data_ust_kWave_transmission'' to the path:
 .../r-Wave/data/simulation/...

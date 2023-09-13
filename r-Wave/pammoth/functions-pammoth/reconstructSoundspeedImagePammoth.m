@@ -455,8 +455,12 @@ num_us_segment = 100;
 % is chosen based on the fact that the normal vector to all the transducers(emitters)
 % face to the centre of the bowl. Alternatively, the distances can be used.
 % Note that both approches, 'distances' or 'open_angle' are the same by
-% choosing equivalent prameters. The open angle is chosen based on the cup size.
-para.open_angle = max(pi/6, pi/4 - 3 * (8 - data_ids.cup_size) * pi/180);  % pi/4;  %
+% choosing equivalent prameters. 
+% The open angle has been previously chosen based on the cup size, but the angle 
+% is now fixed. The reason is that for implementing SART, the open angle must be
+% sufficiently large.
+% para.open_angle = max(pi/6, pi/4 - 3 * (8 - data_ids.cup_size) * pi/180);  
+para.open_angle = pi/3;
 
 % Display the cup size
 disp(['The cup size is:' num2str(data_ids.cup_size)])

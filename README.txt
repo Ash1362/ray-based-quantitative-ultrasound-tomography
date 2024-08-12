@@ -2,7 +2,7 @@ ____________________________________________________________________________
 
                                   r-Wave
 
-                    A MATLAB toolbox for quantitative ulrasound tomography
+                    A MATLAB toolbox for quantitative ulrasound tomography of soft tissues
                     using two-point ray tracing 
 ____________________________________________________________________________
 

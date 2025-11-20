@@ -1,0 +1,110 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>offGridBowl :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>offGridBowl</h1>
+<p class="purpose">Generate a non-binary mask for a bowl source on a 3D grid.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+mask = offGridBowl(kgrid, bowl_pos, radius, diameter, focus_pos)
+mask = offGridBowl(kgrid, bowl_pos, radius, diameter, focus_pos, plot_bowl)
+</pre>
+
+<h2>Description</h2>
+
+<p><code>offGridBowl</code> computes a non-binary mask for implementing a bowl source in 3D simulations. It evenly samples the bowl using Fermat's spiral, and for each sample point computes a band-limited interpolant corresponding to a point source at that location. These point source responses are summed and scaled to give the source mask.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 32;
+Ny = Nx;
+Nz = Nx;
+dx = 1;
+dy = dx;
+dz = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy, Nz, dz);
+
+<span class="comment">% create bowl</span>
+bowl_pos  = [4, 4, 4];
+radius    = 15;
+diameter  = 21;
+focus_pos = -bowl_pos;
+plot_bowl = true;
+mask = offGridBowl(kgrid, bowl_pos, radius, diameter, focus_pos, plot_bowl);
+
+<span class="comment">% add mask extent to plot</span>
+hold on
+p = patch(isosurface(kgrid.y_vec, kgrid.x_vec, kgrid.z_vec, abs(mask), 0.5)); <span class="comment">% 1/2 mask</span>
+set(p, 'FaceAlpha', 0.5, 'FaceColor', 'red', 'EdgeColor', 'none');
+p = patch(isosurface(kgrid.y_vec, kgrid.x_vec, kgrid.z_vec, abs(mask), 0.1)); <span class="comment">% 1/10 mask</span>
+set(p, 'FaceAlpha', 0.2, 'FaceColor', 'blue', 'EdgeColor', 'none');
+camlight, lighting flat
+set(gca, 'children', flipud(get(gca, 'children'))) <span class="comment">% reverse plot order</span>
+</pre>
+
+<img vspace="5" hspace="5" src="images/offGridBowl_01.png" style="width:560px;height:420px;" alt="">
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>k-space grid structure returned by makeGrid containing Cartesian and k-space grid fields</td>
+    </tr>
+    
+    <tr valign="top">
+        <td width = "150"><code>bowl_pos</code></td>
+        <td>centre of the rear surface of the bowl given as a three element vector [bx, by, bz] [m] </td>
+    </tr>
+
+    <tr valign="top">
+        <td width = "150"><code>radius</code></td>
+        <td>radius of curvature of the bowl [m]</td>
+    </tr>
+    
+    <tr valign="top">
+        <td width = "150"><code>diameter</code></td>
+        <td>aperture diameter of the bowl [m]</td>
+    </tr>
+    
+	<tr valign="top">
+        <td width = "150"><code>focus_pos</code></td>
+        <td>any point on the beam axis of the bowl given as a three element vector [fx, fy, fz] [m]</td>
+    </tr>    
+    
+</table>
+    
+<h2>Optional Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>plot_bowl</code></td>
+        <td>boolean controlling whether the bowl sampling points are plotted (default = false)</td>
+    </tr>   
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>mask</code></td>
+        <td>3D non-binary source mask for a bowl</td>
+    </tr>
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="makeBowl.html">makeArc</a></code>, <code><a href="makeMultiBowl.html">makeMultiBowl</a></code>
+
+</div></body></html>

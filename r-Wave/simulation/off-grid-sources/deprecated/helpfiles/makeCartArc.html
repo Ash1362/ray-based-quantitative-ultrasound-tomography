@@ -1,0 +1,107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd">
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>makeCartArc :: Functions (k-Wave)</title>
+	<link rel="stylesheet" href="kwavehelpstyle.css" type="text/css">
+</head>
+
+<body><div class="content">
+
+<a name="top_of_page"></a>
+<h1>makeCartArc</h1>
+<p class="purpose">Create evenly distributed Cartesian points covering an arc.</p>
+
+<h2>Syntax</h2>
+
+<pre class="codeinput">
+[points, scale] = makeCartArc(kgrid, arc_pos, radius, diameter, focus_pos)
+</pre>
+
+<h2>Description</h1>
+
+<p><code>makeCartArc</code> creates a 2 x num_points array of the Cartesian coordinates of points evenly distributed over an arc.</p>
+
+<h2>Examples</h2>
+
+<pre class="codeinput">
+<span class="comment">% create grid</span>
+Nx = 32;
+Ny = Nx;
+dx = 1;
+dy = dx;
+kgrid = kWaveGrid(Nx, dx, Ny, dy);
+
+<span class="comment">% create arc</span>
+arc_pos = [-8, -8];
+radius = 15;
+diameter = 16;
+focus_pos = -arc_pos;
+points = makeCartArc(kgrid, arc_pos, radius, diameter, focus_pos);
+num_points = size(points, 2);
+
+<span class="comment">% plot points</span>
+figure
+plot(points(2,:), points(1,:), 'k.')
+
+<span class="comment">% plot beam axis</span>
+dp = focus_pos-arc_pos;
+hold on
+quiver(arc_pos(2), arc_pos(1), dp(2), dp(1), 0, 'k')
+
+<span class="comment">% adjust plot axes</span>
+axis(0.5*[kgrid.y_size .* [-1, 1], kgrid.x_size .* [-1, 1]])
+axis equal
+xlabel('y-position')
+ylabel('x-position')
+title(sprintf('%d source points', num_points))
+</pre>
+
+<img vspace="5" hspace="5" src="images/makeCartArc_01.png" style="width:560px;height:420px;" alt="">
+
+<h2>Inputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>kgrid</code></td>
+        <td>the kgrid object on which the simulation will take place</td>
+    </tr>    
+    <tr valign="top">
+        <td width = "150"><code>arc_pos</code></td>
+        <td>centre of the rear surface of the arc given as a two element vector [bx, by] [m] </td>
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>radius</code></td>
+        <td>radius of the arc [m]</td>        
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>diameter</code></td>
+        <td>diameter of the opening of the arc [m]</td>        
+    </tr>     
+    <tr valign="top">
+        <td width = "150"><code>focus_pos</code></td>
+        <td>any point on the beam axis of the arc given as a two element vector [fx, fy] [m]</td>        
+    </tr>          
+</table>
+
+<h2>Outputs</h2>
+
+<table class="body">
+    <tr valign="top">
+        <td width = "150"><code>points</code></td>
+        <td>2 x num_points array of Cartesian coordinates</td>
+    </tr>
+    <tr valign="top">
+        <td width = "150"><code>scale</code></td>
+        <td>scaling factor relating the density of Cartesian points to the density of kgrid nodes</td>
+    </tr>
+</table>
+
+<h2>See Also</h2>
+
+<code><a href="offGridArc.html">offGridArc</a></code>
+
+
+
+
+</div></body></html>

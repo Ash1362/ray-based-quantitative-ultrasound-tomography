@@ -116,7 +116,7 @@ startup_simulation_ust;
 % image reconstruction using the Green' approach to the 3D case is not
 % completed yet. For 3D case, only a time-of-flight image is reconstructed
 % using the paper mentioned above.
-grid_spacing_reconstruction = 2e-3;
+grid_spacing_reconstruction = 1e-3;  % paper Section 5.3: 262x262x138 grid, 1 mm spacing
 
 % the method for reconstruction of the system matrix after each
 % linearisation of the objective function, which is an L2 norm of the
@@ -132,19 +132,19 @@ matrix_construction_method = 'bent-ray';
 % 3)'Characteristics', or 4)'Runge-kutta-2nd'. (default:'Mixed-step')
 % The 'Mixed-step' algorithm is quite fast, and was used for implementation
 % on the Pammoth system.
-raytracing_method_tof = 'Runge-kutta-2nd';  
+raytracing_method_tof = 'Runge-kutta-2nd';  % paper Section 3: ray tracing with ds = 1 mm
 
 % get the numer of workers for parallel programming
 % the user may want to change the number of workers.
 num_worker_pool = 16;
 
 % get the downsampling rate for the emitters. This can be set 1, 2, 4, 8.
-% 8 gives the faster image reconstruction. (Default: 2)
-emitter_downsampling_rate = 2;
+% 8 gives the faster image reconstruction. (Default: 1, paper uses all 1024 emitters)
+emitter_downsampling_rate = 1;
 
 % get the downsampling rate for the receivers. This can be set 1, 2, 4, 8.
-% 8 gives the faster image reconstruction. (Default: 2)
-receiver_downsampling_rate = 2;
+% 8 gives the faster image reconstruction. (Default: 1, paper uses all 4048 receivers)
+receiver_downsampling_rate = 1;
 
 
 %% ========================================================================
@@ -165,7 +165,7 @@ gridtoray_interp_tof = 'Bspline';
 % lineraisation using the 'absloute' approach, the arisng linearised
 % subproblems can be solved using the 'sart' or 'conjuge_gradient'
 % algorithm.
-linear_subproblem_method = 'sart';
+linear_subproblem_method = 'steepest_descent';  % paper Section 5.3: 400 iterations per subproblem
 
 %%=========================================================================
 % THE FIXED PARAMETERS, THE PARAMETERS WHICH MUST NOT BE CHANGED BY THE
@@ -338,7 +338,21 @@ reconst_args_tof = {'num_worker_pool', num_worker_pool,...
     'grid_spacing', grid_spacing_reconstruction,...
     'binaries_emitter_receiver', 'distances',...
     'emitter_downsampling_rate', emitter_downsampling_rate,...
-    'receiver_downsampling_rate', receiver_downsampling_rate};
+    'receiver_downsampling_rate', receiver_downsampling_rate,...
+    ... % paper Section 5.3: smoothing cube of sidelength 5 grid points
+    'smoothing_window_size', 5,...
+    ... % paper Section 5.3: emitter-receiver distance >= 8 cm (0.08/0.1235 ~ 0.6478)
+    'minimum_distance_coeff', 0.08 / 0.1235,...
+    ... % paper Section 5.3: initial guess n_bar = 1 (water, 1500 m/s)
+    'raytogrid_spacing', 1,...
+    ... % paper Section 5.4.2: Quasi-Newton ray linking, eps_link = 1e-6, N_link = 100
+    'raylinking_threshold', 1e-6,...
+    'max_raylinking_iter', 100,...
+    ... % paper Section 5.3: steepest descent with 400 inner iterations
+    'num_iterin', 400,...
+    'step_length', 1,...
+    ... % paper Section 5.3: 12 linearisations
+    'num_iterout', 12};
 
 
 if ~do_calculate_tofs

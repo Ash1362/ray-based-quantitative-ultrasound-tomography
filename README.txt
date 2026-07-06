@@ -57,7 +57,8 @@ _______________________
 The experimental studies studies are based on the paper:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022,
 https://arxiv.org/abs/2211.00316/.
-5- A. Javaherian, ❝The first in vitro and in vivo validation of the hessian-free ray-Born inversion for quantitative ultarsound tomography❞, 2025.
+5- A. Javaherian, ❝The first in vitro and in vivo validation of the hessian-free ray-Born inversion for quantitative ultarsound tomography❞, 2025,
+https://arxiv.org/abs/2511.16633 .
 
 The reference [5] corresponds to the implementation of the Hessian-free ray-Born image reconstruction approach, proposed in reference [1], on in vitro and in vivo
 datsets released by the University of Rochester Medical Center [9,12].

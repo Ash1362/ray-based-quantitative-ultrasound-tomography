@@ -30,8 +30,8 @@ https://arxiv.org/abs/2211.00316/.
 https://iopscience.iop.org/article/10.1088/1361-6420/ac28ed/.
 3- A. Javaherian et al., ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound tomography of the breast❞, Inverse Problems, 36 125010.
 https://iopscience.iop.org/article/10.1088/1361-6420/abc0fc/.
-4- A. Javaherian, ❝An open-source MATLAB package for quantitative ultrasound tomography via ray-Born inversion with in vitro and in vivo validaton❞, 2025,
-https://arxiv.org/abs/
+4- A. Javaherian, ❝Introduction and Numerical Validation of an Open-Source MATLAB Package for Quantitative Ultrasound Tomography via Ray-Born Inversion❞, 2025,
+https://arxiv.org/abs/2511.18511 .
 
 
 The references [1] and [2] correspond to ray-Born inverson approaches proposed for high-resolution and quantitative reconstruction of the sound speed
@@ -244,8 +244,8 @@ Papers/Preprints:
 1 - A. Javaherian, ❝Hessian-inversion-free ray-born inversion for high-resolution quantitative ultrasound tomography❞, 2022. https://arxiv.org/abs/2211.00316/ 
 2 - A. Javaherian and B. Cox, ❝Ray-based inversion accounting for scattering for biomedical ultrasound tomography❞, Inverse Problems vol. 37, no.11, 115003, 2021. https://iopscience.iop.org/article/10.1088/1361-6420/ac28ed/ 
 3 - A. Javaherian, F. Lucka and B. T. Cox, ❝Refraction-corrected ray-based inversion for three-dimensional ultrasound tomography of the breast❞, Inverse Problems, 36 125010. https://iopscience.iop.org/article/10.1088/1361-6420/abc0fc/  
-4 - A. Javaherian, ❝An open-source MATLAB package for quantitative ultrasound tomography via ray-Born inversion with in vitro and in vivo validaton❞, 2025.
-5 - A. Javaherian, ❝The first in vitro and in vivo validation of the hessian-free ray-Born inversion for quantitative ultarsound tomography❞, 2025.
+4 - A. Javaherian, ❝Introduction and Numerical Validation of an Open-Source MATLAB Package for Quantitative Ultrasound Tomography via Ray-Born Inversion❞, 2025, https://arxiv.org/abs/2511.18511 .
+5 - A. Javaherian, ❝The first in vitro and in vivo validation of the hessian-free ray-Born inversion for quantitative ultarsound tomography❞, 2025, https://arxiv.org/abs/2511.16633.
 6 - A. Javaherian and S.K. Setarehdan, ❝Full-waveform approximation of finite-Sized acoustic apertures: forward and adjoint wavefields❝, https://arxiv.org/abs/2212.04466/
 7 - A. Javaherian, 2023, ❝Transmission ultrasound data simulated using the k-Wave toolbox as a benchmark for biomedical quantitative ultrasound tomography using a ray approximation to Green's function❞ (1.1) [Data set]. Zenodo. 
 https://zenodo.org/records/8330926 
